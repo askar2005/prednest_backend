@@ -1,0 +1,600 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(uuid())
+  name            String
+  email           String           @unique
+  passwordHash    String
+  role            UserRole         @default(USER)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  disabledAt      DateTime?
+  lastSeenAt      DateTime?
+  isVerified      Boolean          @default(true)
+  otp             String?
+  otpExpiry       DateTime?
+  resetOtp        String?
+  resetOtpExpiry  DateTime?
+  bookmarks       Bookmark[]
+  dailyChallenges DailyChallenge[] @relation("DailyChallengeUser")
+  progress        Progress?
+  results         Result[]
+}
+
+model Admin {
+  id                   String    @id @default(uuid())
+  fullName             String
+  email                String    @unique
+  passwordHash         String
+  role                 String    @default("ADMIN")
+  isVerified           Boolean   @default(false)
+  otp                  String?
+  otpExpiry            DateTime?
+  resetOtp             String?
+  resetOtpExpiry       DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  displayName          String?
+  lastLoginAt          DateTime?
+  lastPasswordChangeAt DateTime?
+  profileImage         String?
+}
+
+model PreparationCategory {
+  id                    String                 @id @default(uuid())
+  name                  String                 @unique
+  slug                  String                 @unique
+  domain                String
+  description           String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  displayOrder          Int                    @default(0)
+  isEnabled             Boolean                @default(true)
+  themeColor            String?
+  defaultTestDuration   Int                    @default(60)
+  enableAnalytics       Boolean                @default(true)
+  enableDownloads       Boolean                @default(true)
+  enableMockTests       Boolean                @default(true)
+  enableNotes           Boolean                @default(true)
+  enablePyqs            Boolean                @default(true)
+  enableVideos          Boolean                @default(true)
+  maxUploadSize         Int                    @default(10)
+  negativeMarking       Float                  @default(0)
+  passingPercentage     Float                  @default(40)
+  coverImage            String?
+  featured              Boolean                @default(false)
+  gradientColor         String?
+  icon                  String?
+  thumbnailImage        String?
+  interviewQuestions    InterviewQuestion[]
+  mcqQuestions          MCQQuestion[]
+  mockTests             MockTest[]
+  notifications         Notification[]
+  previousYearQuestions PreviousYearQuestion[]
+  studyMaterials        StudyMaterial[]
+  subjects              Subject[]
+  topics                Topic[]
+  videos                Video[]
+}
+
+model Subject {
+  id                    String              @id @default(uuid())
+  preparationCategoryId String
+  name                  String
+  slug                  String              @unique
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  interviewQuestions    InterviewQuestion[]
+  mcqQuestions          MCQQuestion[]
+  mockTests             MockTest[]
+  notifications         Notification[]
+  studyMaterials        StudyMaterial[]
+  preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
+  topics                Topic[]
+
+  @@unique([preparationCategoryId, name])
+}
+
+model Topic {
+  id                    String              @id @default(uuid())
+  name                  String
+  slug                  String              @unique
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  description           String?
+  preparationCategoryId String
+  subjectId             String?
+  featured              Boolean             @default(false)
+  difficulty            String?
+  estimatedTime         Int?
+  status                ContentStatus       @default(ACTIVE)
+  tags                  String?
+  thumbnail             String?
+  bookmarks             Bookmark[]
+  interviewQuestions    InterviewQuestion[]
+  mcqQuestions          MCQQuestion[]
+  mockTests             MockTest[]
+  mockTestQuestions     MockTestQuestion[]
+  notes                 Note[]
+  notifications         Notification[]
+  studyMaterials        StudyMaterial[]
+  preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
+  subject               Subject?            @relation(fields: [subjectId], references: [id])
+  videos                Video[]
+
+  @@unique([preparationCategoryId, name])
+}
+
+model Note {
+  id          String           @id @default(uuid())
+  topicId     String
+  title       String
+  content     String?
+  description String?
+  tags        String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  topic       Topic            @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  attachments NoteAttachment[]
+}
+
+model NoteAttachment {
+  id           String   @id @default(uuid())
+  noteId       String
+  fileName     String
+  originalName String
+  fileType     String
+  fileSize     Int?
+  fileUrl      String
+  createdAt    DateTime @default(now())
+  note         Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+}
+
+model StudyMaterial {
+  id                    String              @id @default(uuid())
+  preparationCategoryId String
+  subjectId             String?
+  topicId               String?
+  title                 String
+  type                  MaterialType
+  content               String?
+  externalUrl           String?
+  difficulty            DifficultyLevel?
+  searchText            String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  downloads             Int                 @default(0)
+  featured              Boolean             @default(false)
+  fileSize              Int?
+  tagsString            String?
+  visibility            Visibility          @default(PUBLIC)
+  attachments           Attachment[]
+  bookmarks             Bookmark[]
+  files                 File[]
+  versions              NoteVersion[]
+  preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
+  subject               Subject?            @relation(fields: [subjectId], references: [id])
+  topic                 Topic?              @relation(fields: [topicId], references: [id])
+  tags                  Tag[]               @relation("MaterialTags")
+}
+
+model MCQQuestion {
+  id                    String              @id @default(uuid())
+  preparationCategoryId String
+  subjectId             String?
+  topicId               String?
+  question              String
+  optionA               String
+  optionB               String
+  optionC               String
+  optionD               String
+  correctOption         String
+  explanation           String?
+  difficulty            DifficultyLevel?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  featured              Boolean             @default(false)
+  status                ContentStatus       @default(ACTIVE)
+  tagsText              String?
+  bookmarks             Bookmark[]
+  preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
+  subject               Subject?            @relation(fields: [subjectId], references: [id])
+  topic                 Topic?              @relation(fields: [topicId], references: [id])
+  mockTestQuestions     MockTestQuestion[]
+  tags                  Tag[]               @relation("QuestionTags")
+}
+
+model InterviewQuestion {
+  id                    String              @id @default(uuid())
+  question              String
+  answer                String
+  topicId               String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  difficulty            DifficultyLevel?
+  preparationCategoryId String
+  sampleResponse        String?
+  subjectId             String?
+  tips                  String?
+  bookmarks             Bookmark[]
+  preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
+  subject               Subject?            @relation(fields: [subjectId], references: [id])
+  topic                 Topic?              @relation(fields: [topicId], references: [id])
+  tags                  Tag[]               @relation("InterviewTags")
+}
+
+model MockTest {
+  id                    String              @id @default(uuid())
+  title                 String
+  description           String
+  durationMinutes       Int
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  difficulty            DifficultyLevel?
+  negativeMarking       Float               @default(0)
+  preparationCategoryId String
+  publishStatus         PublishStatus       @default(DRAFT)
+  subjectId             String?
+  featured              Boolean             @default(false)
+  passingMarks          Int                 @default(40)
+  shuffleOptions        Boolean             @default(true)
+  shuffleQuestions      Boolean             @default(true)
+  totalMarks            Int?
+  scheduledAt           DateTime?
+  topicId               String?
+  bookmarks             Bookmark[]
+  preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
+  subject               Subject?            @relation(fields: [subjectId], references: [id])
+  topic                 Topic?              @relation(fields: [topicId], references: [id])
+  questions             MockTestQuestion[]
+  results               Result[]
+}
+
+model Video {
+  id                    String              @id @default(uuid())
+  preparationCategoryId String
+  topicId               String?
+  title                 String
+  youtubeUrl            String
+  thumbnail             String?
+  duration              Int?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  description           String?
+  featured              Boolean             @default(false)
+  tags                  String?
+  views                 Int                 @default(0)
+  visibility            Visibility          @default(PUBLIC)
+  preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
+  topic                 Topic?              @relation(fields: [topicId], references: [id])
+}
+
+model PreviousYearQuestion {
+  id                    String              @id @default(uuid())
+  preparationCategoryId String
+  year                  Int
+  title                 String
+  pdfUrl                String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  description           String?
+  downloads             Int                 @default(0)
+  tags                  String?
+  preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
+}
+
+model MockTestQuestion {
+  id            String               @id @default(uuid())
+  mockTestId    String
+  topicId       String?
+  mcqQuestionId String?
+  question      String
+  optionA       String?
+  optionB       String?
+  optionC       String?
+  optionD       String?
+  correctOption String?
+  explanation   String?
+  marks         Int                  @default(1)
+  negativeMarks Float                @default(0)
+  orderIndex    Int                  @default(0)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  questionType  QuestionType         @default(MCQ)
+  answerRecords AnswerRecord[]
+  fillBlank     FillBlankQuestion?
+  mcqQuestion   MCQQuestion?         @relation(fields: [mcqQuestionId], references: [id])
+  mockTest      MockTest             @relation(fields: [mockTestId], references: [id], onDelete: Cascade)
+  topic         Topic?               @relation(fields: [topicId], references: [id])
+  shortAnswer   ShortAnswerQuestion?
+  trueFalse     TrueFalseQuestion?
+}
+
+model ShortAnswerQuestion {
+  id                 String           @id @default(uuid())
+  mockTestQuestionId String           @unique
+  answer             String
+  keywords           String?
+  explanation        String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  mockTestQuestion   MockTestQuestion @relation(fields: [mockTestQuestionId], references: [id], onDelete: Cascade)
+}
+
+model TrueFalseQuestion {
+  id                 String           @id @default(uuid())
+  mockTestQuestionId String           @unique
+  correctAnswer      Boolean
+  explanation        String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  mockTestQuestion   MockTestQuestion @relation(fields: [mockTestQuestionId], references: [id], onDelete: Cascade)
+}
+
+model FillBlankQuestion {
+  id                 String           @id @default(uuid())
+  mockTestQuestionId String           @unique
+  correctAnswer      String
+  alternatives       String?
+  explanation        String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  mockTestQuestion   MockTestQuestion @relation(fields: [mockTestQuestionId], references: [id], onDelete: Cascade)
+}
+
+model AnswerRecord {
+  id                 String           @id @default(uuid())
+  resultId           String
+  mockTestQuestionId String
+  selectedOption     String?
+  textAnswer         String?
+  isCorrect          Boolean
+  marksAwarded       Float            @default(0)
+  timeTaken          Int?
+  createdAt          DateTime         @default(now())
+  question           MockTestQuestion @relation(fields: [mockTestQuestionId], references: [id], onDelete: Cascade)
+  result             Result           @relation(fields: [resultId], references: [id], onDelete: Cascade)
+}
+
+model NoteVersion {
+  id              String        @id @default(uuid())
+  studyMaterialId String
+  content         String
+  versionNumber   Int
+  createdAt       DateTime      @default(now())
+  studyMaterial   StudyMaterial @relation(fields: [studyMaterialId], references: [id], onDelete: Cascade)
+}
+
+model File {
+  id              String         @id @default(uuid())
+  originalName    String
+  storedName      String
+  mimeType        String
+  size            Int
+  path            String
+  studyMaterialId String?
+  createdAt       DateTime       @default(now())
+  studyMaterial   StudyMaterial? @relation(fields: [studyMaterialId], references: [id])
+}
+
+model Tag {
+  id                 String              @id @default(uuid())
+  name               String              @unique
+  slug               String              @unique
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  interviewQuestions InterviewQuestion[] @relation("InterviewTags")
+  studyMaterials     StudyMaterial[]     @relation("MaterialTags")
+  mcqQuestions       MCQQuestion[]       @relation("QuestionTags")
+}
+
+model Attachment {
+  id              String        @id @default(uuid())
+  studyMaterialId String
+  fileName        String
+  fileUrl         String
+  mimeType        String
+  size            Int?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  studyMaterial   StudyMaterial @relation(fields: [studyMaterialId], references: [id], onDelete: Cascade)
+}
+
+model Bookmark {
+  id                  String             @id @default(uuid())
+  userId              String
+  createdAt           DateTime           @default(now())
+  interviewQuestionId String?
+  mcqQuestionId       String?
+  mockTestId          String?
+  notificationId      String?
+  studyMaterialId     String?
+  topicId             String?
+  interviewQuestion   InterviewQuestion? @relation(fields: [interviewQuestionId], references: [id], onDelete: Cascade)
+  mcqQuestion         MCQQuestion?       @relation(fields: [mcqQuestionId], references: [id], onDelete: Cascade)
+  mockTest            MockTest?          @relation(fields: [mockTestId], references: [id], onDelete: Cascade)
+  notification        Notification?      @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  studyMaterial       StudyMaterial?     @relation(fields: [studyMaterialId], references: [id], onDelete: Cascade)
+  topic               Topic?             @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, studyMaterialId])
+  @@unique([userId, mcqQuestionId])
+  @@unique([userId, interviewQuestionId])
+  @@unique([userId, notificationId])
+  @@unique([userId, mockTestId])
+  @@unique([userId, topicId])
+}
+
+model Progress {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  testsCompleted Int      @default(0)
+  accuracy       Float    @default(0)
+  averageScore   Float    @default(0)
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DailyChallenge {
+  id               String   @id @default(uuid())
+  userId           String
+  title            String
+  question         String
+  reward           Int      @default(10)
+  score            Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  leaderboardReady Boolean  @default(false)
+  streak           Int      @default(0)
+  user             User     @relation("DailyChallengeUser", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Result {
+  id             String         @id @default(uuid())
+  userId         String
+  mockTestId     String
+  score          Int            @default(0)
+  total          Int            @default(0)
+  status         ResultStatus   @default(COMPLETED)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  completionTime Int?
+  accuracy       Float          @default(0)
+  correctCount   Int            @default(0)
+  percentile     Float?
+  rank           Int?
+  skippedCount   Int            @default(0)
+  timeSpent      Int?
+  wrongCount     Int            @default(0)
+  answers        AnswerRecord[]
+  mockTest       MockTest       @relation(fields: [mockTestId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id                    String                   @id @default(uuid())
+  preparationCategoryId String?
+  subjectId             String?
+  topicId               String?
+  title                 String
+  summary               String?
+  description           String?
+  category              NotificationCategory     @default(GENERAL)
+  priority              NotificationPriority     @default(MEDIUM)
+  thumbnailUrl          String?
+  bannerUrl             String?
+  attachmentUrl         String?
+  externalLink          String?
+  publishDate           DateTime?
+  expiryDate            DateTime?
+  isPinned              Boolean                  @default(false)
+  isFeatured            Boolean                  @default(false)
+  status                PublishStatus            @default(DRAFT)
+  targetAudience        String?
+  views                 Int                      @default(0)
+  createdBy             String?
+  searchText            String?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  attachments           AttachmentNotification[]
+  bookmarks             Bookmark[]
+  preparationCategory   PreparationCategory?     @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
+  subject               Subject?                 @relation(fields: [subjectId], references: [id])
+  topic                 Topic?                   @relation(fields: [topicId], references: [id])
+}
+
+model AttachmentNotification {
+  id             String       @id @default(uuid())
+  notificationId String
+  fileName       String
+  fileUrl        String
+  mimeType       String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+}
+
+enum UserRole {
+  STUDENT
+  ADMIN
+  USER
+}
+
+enum NoteType {
+  APTITUDE
+  TECHNICAL
+}
+
+enum ResultStatus {
+  COMPLETED
+  ABANDONED
+}
+
+enum MaterialType {
+  NOTE
+  PDF
+  IMAGE
+  VIDEO
+  CODE
+  PRACTICE
+  SOLUTION
+}
+
+enum NotificationCategory {
+  PLACEMENT_DRIVES
+  INTERNSHIPS
+  HACKATHONS
+  COMPANY_HIRING
+  EXAM_UPDATES
+  SCHOLARSHIPS
+  COLLEGE_ANNOUNCEMENTS
+  WORKSHOP
+  GENERAL
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum QuestionType {
+  MCQ
+  SHORT_ANSWER
+  TRUE_FALSE
+  FILL_BLANK
+  CODING
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ContentStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+}

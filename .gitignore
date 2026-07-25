@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.local
+.env.production
+!.env.example
+*.log
+*.tsbuildinfo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.prisma/
+generated/
+uploads/
+tmp/
