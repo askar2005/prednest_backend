@@ -20,8 +20,25 @@ app.use(morgan('combined'));
 
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
+app.get('/', (_req, res) => {
+  res.json({
+    success: true,
+    status: 'online',
+    service: 'PrepNest Backend',
+    version: '1.0.0',
+    message: 'PrepNest Backend API is running successfully.',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'prepnest-backend' });
+  res.json({
+    success: true,
+    status: 'healthy',
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.use('/api', apiRouter);
