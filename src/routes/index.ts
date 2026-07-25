@@ -10,12 +10,17 @@ import { adminNotificationRouter, studentNotificationRouter } from './notificati
 
 export const apiRouter = Router();
 
+apiRouter.use((req, _res, next) => {
+  console.log(`[API] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/admin', adminRouter);                     // Admin auth + profile routes
-apiRouter.use('/', contentRouter);
 apiRouter.use('/student', studentRouter);
+apiRouter.use('/notifications', studentNotificationRouter);
+apiRouter.use('/admin/notifications', adminNotificationRouter);
 apiRouter.use('/preparation', preparationRouter);
+apiRouter.use('/', contentRouter);
 apiRouter.use('/', fileRouter);
 apiRouter.use('/', notesRouter);
-apiRouter.use('/admin/notifications', adminNotificationRouter);
-apiRouter.use('/notifications', studentNotificationRouter);
