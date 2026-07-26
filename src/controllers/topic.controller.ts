@@ -76,9 +76,16 @@ export const topicController = {
   notes: {
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
+        const isAdmin = req.user?.role === 'ADMIN';
+        const noteWhere: any = { topicId: req.params.topicId as string };
+        const smWhere: any = { topicId: req.params.topicId as string };
+        if (!isAdmin) {
+          noteWhere.isPublished = true;
+          smWhere.visibility = 'PUBLIC';
+        }
         const [studyMats, newNotes] = await Promise.all([
-          prisma.studyMaterial.findMany({ where: { topicId: req.params.topicId as string }, orderBy: { createdAt: 'desc' } }),
-          prisma.note.findMany({ where: { topicId: req.params.topicId as string }, orderBy: { createdAt: 'desc' } }),
+          prisma.studyMaterial.findMany({ where: smWhere, orderBy: { createdAt: 'desc' } }),
+          prisma.note.findMany({ where: noteWhere, orderBy: { createdAt: 'desc' } }),
         ]);
         const items = [...newNotes, ...studyMats];
         res.json({ items, total: items.length });
@@ -107,7 +114,10 @@ export const topicController = {
   mcqs: {
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const items = await prisma.mCQQuestion.findMany({ where: { topicId: req.params.topicId as string }, orderBy: { createdAt: 'desc' } });
+        const isAdmin = req.user?.role === 'ADMIN';
+        const where: any = { topicId: req.params.topicId as string };
+        if (!isAdmin) where.isPublished = true;
+        const items = await prisma.mCQQuestion.findMany({ where, orderBy: { createdAt: 'desc' } });
         res.json({ items, total: items.length });
       } catch (e) { next(e); }
     },
@@ -154,7 +164,10 @@ export const topicController = {
   videos: {
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const items = await prisma.video.findMany({ where: { topicId: req.params.topicId as string }, orderBy: { createdAt: 'desc' } });
+        const isAdmin = req.user?.role === 'ADMIN';
+        const where: any = { topicId: req.params.topicId as string };
+        if (!isAdmin) where.visibility = 'PUBLIC';
+        const items = await prisma.video.findMany({ where, orderBy: { createdAt: 'desc' } });
         res.json({ items, total: items.length });
       } catch (e) { next(e); }
     },
@@ -192,7 +205,10 @@ export const topicController = {
   mockTests: {
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const items = await prisma.mockTest.findMany({ where: { preparationCategory: { topics: { some: { id: req.params.topicId as string } } } }, orderBy: { createdAt: 'desc' }, include: { _count: { select: { questions: true, results: true } } } });
+        const isAdmin = req.user?.role === 'ADMIN';
+        const where: any = { preparationCategory: { topics: { some: { id: req.params.topicId as string } } } };
+        if (!isAdmin) where.publishStatus = 'PUBLISHED';
+        const items = await prisma.mockTest.findMany({ where, orderBy: { createdAt: 'desc' }, include: { _count: { select: { questions: true, results: true } } } });
         res.json({ items, total: items.length });
       } catch (e) { next(e); }
     },

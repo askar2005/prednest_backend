@@ -11,6 +11,9 @@ import { env } from './config/env.js';
 
 export const app = express();
 
+// Trust Render proxy so rate limiter sees real client IP
+app.set('trust proxy', 1);
+
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
 const corsOrigins = env.CLIENT_ORIGIN.split(',').map((o) => o.trim());
@@ -27,7 +30,17 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '50mb' }));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 200 }));
+
+// Per-route rate limiters — skip OPTIONS so preflights never count
+const skipOpts = (req: any) => req.method === 'OPTIONS';
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, skip: skipOpts, message: { message: 'Too many login attempts. Try again later.' } });
+const globalLimiter = rateLimit({ windowMs: 60 * 1000, max: 100, skip: skipOpts, message: { message: 'Too many requests. Slow down.' } });
+// Apply auth rate limiter to login routes specifically
+app.use('/api/auth/login', authLimiter);
+app.use('/api/admin/login', authLimiter);
+// General rate limiter for all other routes (100 req/min, unlimited for OPTIONS)
+app.use(globalLimiter);
+
 app.use(morgan('combined'));
 
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));

@@ -101,7 +101,10 @@ export const preparationController = {
 
   notes: { list: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const items = await prisma.studyMaterial.findMany({ where: { preparationCategoryId: catId(req) }, orderBy: { createdAt: 'desc' }, include: { topic: { select: { name: true } } } });
+      const isAdmin = req.user?.role === 'ADMIN';
+      const where: any = { preparationCategoryId: catId(req) };
+      if (!isAdmin) where.visibility = 'PUBLIC';
+      const items = await prisma.studyMaterial.findMany({ where, orderBy: { createdAt: 'desc' }, include: { topic: { select: { name: true } } } });
       res.json({ items, total: items.length });
     } catch (e) { next(e); }
   }},
@@ -125,7 +128,10 @@ export const preparationController = {
 
   mcqs: { list: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const items = await prisma.mCQQuestion.findMany({ where: { preparationCategoryId: catId(req) }, orderBy: { createdAt: 'desc' }, include: { topic: { select: { name: true } } } });
+      const isAdmin = req.user?.role === 'ADMIN';
+      const where: any = { preparationCategoryId: catId(req) };
+      if (!isAdmin) where.isPublished = true;
+      const items = await prisma.mCQQuestion.findMany({ where, orderBy: { createdAt: 'desc' }, include: { topic: { select: { name: true } } } });
       res.json({ items, total: items.length });
     } catch (e) { next(e); }
   }},
@@ -157,7 +163,10 @@ export const preparationController = {
 
   videos: { list: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const items = await prisma.video.findMany({ where: { preparationCategoryId: catId(req) }, orderBy: { createdAt: 'desc' }, include: { topic: { select: { name: true } } } });
+      const isAdmin = req.user?.role === 'ADMIN';
+      const where: any = { preparationCategoryId: catId(req) };
+      if (!isAdmin) where.visibility = 'PUBLIC';
+      const items = await prisma.video.findMany({ where, orderBy: { createdAt: 'desc' }, include: { topic: { select: { name: true } } } });
       res.json({ items, total: items.length });
     } catch (e) { next(e); }
   }},
@@ -189,7 +198,10 @@ export const preparationController = {
 
   mockTests: { list: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const items = await prisma.mockTest.findMany({ where: { preparationCategoryId: catId(req) }, orderBy: { createdAt: 'desc' }, include: { _count: { select: { questions: true } } } });
+      const isAdmin = req.user?.role === 'ADMIN';
+      const where: any = { preparationCategoryId: catId(req) };
+      if (!isAdmin) where.publishStatus = 'PUBLISHED';
+      const items = await prisma.mockTest.findMany({ where, orderBy: { createdAt: 'desc' }, include: { _count: { select: { questions: true } } } });
       res.json({ items, total: items.length });
     } catch (e) { next(e); }
   }},
