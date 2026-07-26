@@ -8,24 +8,25 @@ datasource db {
 }
 
 model User {
-  id              String           @id @default(uuid())
-  name            String
-  email           String           @unique
-  passwordHash    String
-  role            UserRole         @default(USER)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  disabledAt      DateTime?
-  lastSeenAt      DateTime?
-  isVerified      Boolean          @default(true)
-  otp             String?
-  otpExpiry       DateTime?
-  resetOtp        String?
-  resetOtpExpiry  DateTime?
-  bookmarks       Bookmark[]
-  dailyChallenges DailyChallenge[] @relation("DailyChallengeUser")
-  progress        Progress?
-  results         Result[]
+  id                String                 @id @default(uuid())
+  name              String
+  email             String                 @unique
+  passwordHash      String
+  role              UserRole               @default(USER)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  disabledAt        DateTime?
+  lastSeenAt        DateTime?
+  isVerified        Boolean                @default(true)
+  otp               String?
+  otpExpiry         DateTime?
+  resetOtp          String?
+  resetOtpExpiry    DateTime?
+  bookmarks         Bookmark[]
+  dailyAttempts     UserDailyChallenge[]
+  streak            UserStreak?
+  progress          Progress?
+  results           Result[]
 }
 
 model Admin {
@@ -445,17 +446,42 @@ model Progress {
 }
 
 model DailyChallenge {
-  id               String   @id @default(uuid())
-  userId           String
-  title            String
-  question         String
-  reward           Int      @default(10)
-  score            Int?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  leaderboardReady Boolean  @default(false)
-  streak           Int      @default(0)
-  user             User     @relation("DailyChallengeUser", fields: [userId], references: [id], onDelete: Cascade)
+  id            String              @id @default(uuid())
+  question      String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctAnswer String
+  explanation   String?
+  status        DailyChallengeStatus @default(QUEUE)
+  publishedAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  attempts      UserDailyChallenge[]
+}
+
+model UserDailyChallenge {
+  id             String         @id @default(uuid())
+  userId         String
+  challengeId    String
+  selectedAnswer String
+  isCorrect      Boolean
+  completedAt    DateTime       @default(now())
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge      DailyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+}
+
+model UserStreak {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  currentStreak     Int       @default(0)
+  longestStreak     Int       @default(0)
+  lastCompletedDate DateTime?
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Result {
@@ -588,6 +614,12 @@ enum DifficultyLevel {
   HARD
 }
 
+enum DailyChallengeStatus {
+  QUEUE
+  ACTIVE
+  ARCHIVED
+}
+
 enum ContentStatus {
   ACTIVE
   INACTIVE
@@ -598,3 +630,5 @@ enum Visibility {
   PUBLIC
   PRIVATE
 }
+
+

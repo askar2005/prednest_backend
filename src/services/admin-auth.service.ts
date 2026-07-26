@@ -29,6 +29,10 @@ export const adminAuthService = {
       data: { fullName: input.fullName, email: input.email.toLowerCase(), passwordHash, role: 'ADMIN', otp, otpExpiry, isVerified: false },
       select: adminSelect,
     });
+    console.log('=== ADMIN SIGNUP === Admin created successfully');
+    console.log('=== ADMIN SIGNUP === Database ID:', admin.id);
+    console.log('=== ADMIN SIGNUP === Email:', admin.email);
+    console.log('=== ADMIN SIGNUP === Full Name:', admin.fullName);
     log('signup', 'Admin created:', admin.id);
     return { message: 'Admin account created. Please verify your email.', email: admin.email };
   },
@@ -52,9 +56,17 @@ export const adminAuthService = {
   async login(email: string, password: string) {
     log('login', 'Login attempt:', email.toLowerCase());
     const admin = await prisma.admin.findUnique({ where: { email: email.toLowerCase() } });
-    if (!admin) throw new AppError('Invalid credentials', 401);
+    if (!admin) {
+      console.log('=== ADMIN LOGIN === Admin NOT FOUND:', email.toLowerCase());
+      throw new AppError('Invalid credentials', 401);
+    }
+    console.log('=== ADMIN LOGIN === Admin found:', JSON.stringify({ id: admin.id, email: admin.email, role: admin.role, isVerified: admin.isVerified }));
     const ok = await bcrypt.compare(password, admin.passwordHash);
-    if (!ok) throw new AppError('Invalid credentials', 401);
+    console.log('=== ADMIN LOGIN === Password match:', ok);
+    if (!ok) {
+      console.log('=== ADMIN LOGIN === Password mismatch for admin:', admin.id);
+      throw new AppError('Invalid credentials', 401);
+    }
     if (!admin.isVerified) {
       log('login', 'Admin not verified, sending new OTP');
       const otp = generateOtp();

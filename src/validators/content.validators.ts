@@ -109,13 +109,16 @@ export const notificationSchema = z.object({
 });
 
 export const dailyChallengeSchema = z.object({
-  title: z.string().min(2),
-  question: z.string().min(2),
-  reward: z.number().int().nonnegative().optional(),
-  score: z.number().int().nonnegative().optional().nullable(),
-  streak: z.number().int().nonnegative().optional(),
-  leaderboardReady: z.boolean().optional(),
+  question: z.string().min(1, 'Question is required'),
+  optionA: z.string().min(1, 'Option A is required'),
+  optionB: z.string().min(1, 'Option B is required'),
+  optionC: z.string().min(1, 'Option C is required'),
+  optionD: z.string().min(1, 'Option D is required'),
+  correctAnswer: z.string().min(1, 'Correct Answer is required'),
+  explanation: z.string().nullish(),
 });
+
+export const dailyChallengeUpdateSchema = dailyChallengeSchema.partial();
 
 export const videoSchema = z.object({
   preparationCategoryId: z.string().uuid(),

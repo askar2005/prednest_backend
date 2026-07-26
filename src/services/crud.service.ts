@@ -14,7 +14,8 @@ const searchFields: Record<string, string[]> = {
   mockTestQuestion: ['question', 'explanation'],
   interviewQuestion: ['question', 'answer', 'sampleResponse', 'tips'],
   notification: ['title', 'description', 'searchText'],
-  dailyChallenge: ['title', 'question'],
+  userDailyChallenge: [],
+  userStreak: [],
   bookmark: [],
   progress: [],
   user: ['name', 'email'],
@@ -26,7 +27,7 @@ const filterableFields = [
   'type', 'status', 'publishStatus',
 ] as const;
 
-export function createCrudService(model: ModelName) {
+export function createCrudService(model: ModelName, options?: { include?: any }) {
   const delegate = (prisma as any)[model];
 
   return {
@@ -42,13 +43,17 @@ export function createCrudService(model: ModelName) {
           where[key] = query[key];
         }
       }
+      const findOptions: any = {
+        where,
+        skip,
+        take: limit,
+        orderBy: query.sortBy ? { [query.sortBy]: query.sortDirection ?? 'desc' } : { createdAt: 'desc' },
+      };
+      if (options?.include) {
+        findOptions.include = options.include;
+      }
       const [items, total] = await Promise.all([
-        delegate.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: query.sortBy ? { [query.sortBy]: query.sortDirection ?? 'desc' } : { createdAt: 'desc' },
-        }),
+        delegate.findMany(findOptions),
         delegate.count({ where }),
       ]);
       return { items, page, limit, total };

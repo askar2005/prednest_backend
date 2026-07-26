@@ -36,6 +36,11 @@ export const authService = {
       data: { name: input.fullName, email: input.email.toLowerCase(), passwordHash, role: 'USER', otp, otpExpiry, isVerified: false },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
+    console.log('=== AUTH SIGNUP === User created successfully');
+    console.log('=== AUTH SIGNUP === Database ID:', user.id);
+    console.log('=== AUTH SIGNUP === Email:', user.email);
+    console.log('=== AUTH SIGNUP === Name:', user.name);
+    console.log('=== AUTH SIGNUP === Created at:', user.createdAt);
     log('signup', 'User created:', user.id);
     return { message: 'Account created. Please verify your email.', userId: user.id, email: user.email };
   },
@@ -59,9 +64,18 @@ export const authService = {
   async login(input: LoginInput) {
     log('login', 'Login attempt:', input.email.toLowerCase());
     const user = await prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });
-    if (!user) throw new AppError('Invalid credentials', 401);
+    if (!user) {
+      console.log('=== AUTH LOGIN === User NOT FOUND:', input.email.toLowerCase());
+      console.log('=== AUTH LOGIN === Reason: email not in database');
+      throw new AppError('Invalid credentials', 401);
+    }
+    console.log('=== AUTH LOGIN === User found:', JSON.stringify({ id: user.id, email: user.email, role: user.role, isVerified: user.isVerified }));
     const ok = await verifyPassword(input.password, user.passwordHash);
-    if (!ok) throw new AppError('Invalid credentials', 401);
+    console.log('=== AUTH LOGIN === Password match:', ok);
+    if (!ok) {
+      console.log('=== AUTH LOGIN === Password mismatch for user:', user.id);
+      throw new AppError('Invalid credentials', 401);
+    }
     if (!user.isVerified) {
       log('login', 'User not verified, sending new OTP');
       const otp = generateOtp();

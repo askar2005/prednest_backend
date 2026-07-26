@@ -7,6 +7,7 @@ import preparationRouter from './preparation.routes.js';
 import fileRouter from './file.routes.js';
 import notesRouter from './notes.routes.js';
 import { adminNotificationRouter, studentNotificationRouter } from './notification.routes.js';
+import { dailyChallengeRouter } from './daily-challenge.routes.js';
 
 export const apiRouter = Router();
 
@@ -24,3 +25,5 @@ apiRouter.use('/preparation', preparationRouter);
 apiRouter.use('/', contentRouter);
 apiRouter.use('/', fileRouter);
 apiRouter.use('/', notesRouter);
+apiRouter.use('/', dailyChallengeRouter);
+apiRouter.use('/admin', dailyChallengeRouter);

@@ -10,6 +10,10 @@ export async function verifyEmail(req: Request, res: Response, next: NextFunctio
 }
 
 export async function login(req: Request, res: Response, next: NextFunction) {
+  console.log('[LOGIN CTRL] req.body:', JSON.stringify(req.body));
+  console.log('[LOGIN CTRL] req.body.email:', req.body?.email);
+  console.log('[LOGIN CTRL] req.body.password length:', req.body?.password?.length || 0);
+  console.log('[LOGIN CTRL] content-type:', req.headers['content-type']);
   try { res.json(await authService.login(req.body)); } catch (e) { next(e); }
 }
 

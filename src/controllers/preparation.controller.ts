@@ -235,16 +235,9 @@ export const preparationController = {
     try { res.json((req as any).__category); } catch (e) { next(e); }
   }, update: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { name, description, isEnabled, themeColor, displayOrder, gradientColor, icon, featured } = req.body;
+      const { name } = req.body;
       const data: any = {};
       if (name !== undefined) data.name = name;
-      if (description !== undefined) data.description = description;
-      if (isEnabled !== undefined) data.isEnabled = isEnabled;
-      if (themeColor !== undefined) data.themeColor = themeColor;
-      if (displayOrder !== undefined) data.displayOrder = displayOrder;
-      if (gradientColor !== undefined) data.gradientColor = gradientColor;
-      if (icon !== undefined) data.icon = icon;
-      if (featured !== undefined) data.featured = featured;
       const cat = await prisma.preparationCategory.update({ where: { slug: req.params.category as string }, data });
       res.json(cat);
     } catch (e) { next(e); }

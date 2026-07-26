@@ -147,21 +147,5 @@ export const studentController = {
     } catch (e) { next(e); }
   },
 
-  submitDailyChallenge: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { score } = req.body as { score: number };
-      const id = req.params.id as string;
-      if (typeof score !== 'number') throw new AppError('score is required', 400);
 
-      const challenge = await prisma.dailyChallenge.findUnique({ where: { id } });
-      if (!challenge) throw new AppError('Challenge not found', 404);
-      if (challenge.userId !== req.user!.id) throw new AppError('Not your challenge', 403);
-
-      const updated = await prisma.dailyChallenge.update({
-        where: { id },
-        data: { score, leaderboardReady: true },
-      });
-      res.json(updated);
-    } catch (e) { next(e); }
-  },
 };

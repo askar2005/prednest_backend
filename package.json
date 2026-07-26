@@ -28,6 +28,9 @@
     "xlsx": "^0.18.5",
     "zod": "^4.0.17"
   },
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
+  },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.19",

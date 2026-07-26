@@ -61,14 +61,7 @@ const mockTestEditSchema = z.object({
 });
 const bulkMcqSchema = z.object({ questions: z.array(mcqSchema).min(1) });
 const moduleSettingsSchema = z.object({
-  isEnabled: z.boolean().optional(),
-  themeColor: z.string().optional().nullable(),
-  displayOrder: z.number().int().optional(),
-  name: z.string().min(2).optional(),
-  description: z.string().optional().nullable(),
-  gradientColor: z.string().optional().nullable(),
-  icon: z.string().optional().nullable(),
-  featured: z.boolean().optional(),
+  name: z.string().min(2, 'Module name is required'),
 });
 
 // Dashboard
