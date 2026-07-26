@@ -33,10 +33,18 @@ export const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_TYPES.includes(file.mimetype)) cb(null, true);
-    else cb(new Error(`File type ${file.mimetype} not allowed`));
+    console.log('[MULTER] fileFilter check:', { fieldname: file.fieldname, originalname: file.originalname, mimetype: file.mimetype, size: file.size });
+    if (ALLOWED_TYPES.includes(file.mimetype)) {
+      console.log('[MULTER] Allowed:', file.mimetype);
+      cb(null, true);
+    } else {
+      console.log('[MULTER] Rejected:', file.mimetype, 'not in', ALLOWED_TYPES);
+      cb(new Error(`File type ${file.mimetype} not allowed`));
+    }
   },
 });
+
+export const uploadMiddleware = upload.single('file');
 
 export const uploadCategoryImage = multer({
   storage: catStorage,

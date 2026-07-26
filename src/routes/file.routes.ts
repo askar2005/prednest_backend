@@ -24,9 +24,60 @@ router.get('/files/:id', async (req, res) => {
   }
 });
 
-router.post('/files/upload', requireAuth, requireRole('ADMIN'), upload.single('file'), async (req, res) => {
+router.post('/files/upload', (req, res, next) => {
+  console.log('[UPLOAD] === ROUTE HIT ===');
+  console.log('[UPLOAD] Content-Type:', req.headers['content-type']);
+  console.log('[UPLOAD] Content-Length:', req.headers['content-length']);
+  console.log('[UPLOAD] Host:', req.headers['host']);
+  console.log('[UPLOAD] Origin:', req.headers['origin']);
+  console.log('[UPLOAD] Authorization present:', !!req.headers.authorization);
+
+  // Wrap upload.single in a try/catch to detect multer hangs
+  let handled = false;
+  const origJson = res.json.bind(res);
+  res.json = function (body: any) {
+    if (!handled) { handled = true; console.log('[UPLOAD] Response sent:', JSON.stringify(body).substring(0, 200)); }
+    return origJson(body);
+  };
+  const origStatus = res.status.bind(res);
+  res.status = function (code: number) {
+    if (!handled) { handled = true; console.log('[UPLOAD] Status set to', code); }
+    return origStatus(code);
+  };
+  const timeout = setTimeout(() => {
+    if (!handled) {
+      console.error('[UPLOAD] *** TIMEOUT - request hung for 60s, forcing 500 response ***');
+      handled = true;
+      if (!res.headersSent) res.status(500).json({ message: 'Upload processing timed out' });
+    }
+  }, 60000);
+
+  res.on('finish', () => { clearTimeout(timeout); if (!handled) { handled = true; console.log('[UPLOAD] Response finished (status=' + res.statusCode + ')'); } });
+  res.on('close', () => { clearTimeout(timeout); });
+
+  next();
+}, requireAuth, requireRole('ADMIN'), (req, res, next) => {
+  console.log('[UPLOAD] Auth passed, calling multer...');
+  const start = Date.now();
+  upload.single('file')(req, res, (err: any) => {
+    const elapsed = Date.now() - start;
+    if (err) {
+      console.error(`[UPLOAD] Multer error after ${elapsed}ms:`, err.name, err.message, err.code);
+      return next(err);
+    }
+    console.log(`[UPLOAD] Multer OK after ${elapsed}ms`);
+    console.log('[UPLOAD] req.file:', req.file ? { originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, filename: req.file.filename, path: req.file.path } : 'MISSING');
+    next();
+  });
+}, async (req, res) => {
+  console.log('[UPLOAD] === CONTROLLER ===');
   try {
-    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    if (!req.file) {
+      console.log('[UPLOAD] No file in request, returning 400');
+      res.status(400).json({ message: 'No file uploaded' });
+      return;
+    }
+    console.log('[UPLOAD] Saving to database:', { originalName: req.file.originalname, storedName: req.file.filename, mimeType: req.file.mimetype, size: req.file.size });
     const file = await prisma.file.create({
       data: {
         originalName: req.file.originalname,
@@ -36,8 +87,13 @@ router.post('/files/upload', requireAuth, requireRole('ADMIN'), upload.single('f
         path: req.file.path,
       },
     });
-    res.json({ id: file.id, originalName: file.originalName, mimeType: file.mimeType, size: file.size, url: `/api/files/${file.id}` });
+    console.log('[UPLOAD] DB saved, id:', file.id);
+    const body = { id: file.id, originalName: file.originalName, mimeType: file.mimeType, size: file.size, url: `/api/files/${file.id}` };
+    console.log('[UPLOAD] Sending response:', JSON.stringify(body));
+    res.json(body);
   } catch (err) {
+    console.error('[UPLOAD] Controller error:', err instanceof Error ? err.message : err);
+    if (err instanceof Error) console.error('[UPLOAD] Stack:', err.stack);
     res.status(500).json({ message: 'Failed to save file' });
   }
 });
