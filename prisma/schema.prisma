@@ -134,28 +134,14 @@ model Topic {
 }
 
 model Note {
-  id          String           @id @default(uuid())
+  id          String   @id @default(uuid())
   topicId     String
   title       String
-  content     String?
-  description String?
-  tags        String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  topic       Topic            @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  attachments NoteAttachment[]
-}
-
-model NoteAttachment {
-  id           String   @id @default(uuid())
-  noteId       String
-  fileName     String
-  originalName String
-  fileType     String
-  fileSize     Int?
-  fileUrl      String
-  createdAt    DateTime @default(now())
-  note         Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  pdfUrl      String?
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  topic       Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
 }
 
 model StudyMaterial {
@@ -199,6 +185,7 @@ model MCQQuestion {
   correctOption         String
   explanation           String?
   difficulty            DifficultyLevel?
+  isPublished           Boolean             @default(false)
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
   featured              Boolean             @default(false)

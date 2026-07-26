@@ -78,7 +78,7 @@ export const topicController = {
       try {
         const [studyMats, newNotes] = await Promise.all([
           prisma.studyMaterial.findMany({ where: { topicId: req.params.topicId as string }, orderBy: { createdAt: 'desc' } }),
-          prisma.note.findMany({ where: { topicId: req.params.topicId as string }, orderBy: { createdAt: 'desc' }, include: { attachments: { orderBy: { createdAt: 'desc' } } } }),
+          prisma.note.findMany({ where: { topicId: req.params.topicId as string }, orderBy: { createdAt: 'desc' } }),
         ]);
         const items = [...newNotes, ...studyMats];
         res.json({ items, total: items.length });
@@ -115,7 +115,7 @@ export const topicController = {
       try {
         const catId = (req as any).__categoryId as string;
         const mcq = await prisma.mCQQuestion.create({
-          data: { preparationCategoryId: catId, topicId: req.params.topicId as string, question: req.body.question, optionA: req.body.optionA, optionB: req.body.optionB, optionC: req.body.optionC, optionD: req.body.optionD, correctOption: req.body.correctOption, explanation: req.body.explanation || null, difficulty: req.body.difficulty || null, tagsText: req.body.tags || null },
+          data: { preparationCategoryId: catId, topicId: req.params.topicId as string, question: req.body.question, optionA: req.body.optionA, optionB: req.body.optionB, optionC: req.body.optionC, optionD: req.body.optionD, correctOption: req.body.correctOption, explanation: req.body.explanation || null, difficulty: req.body.difficulty || null, isPublished: req.body.isPublished ?? false, tagsText: req.body.tags || null },
         });
         res.status(201).json(mcq);
       } catch (e) { next(e); }
@@ -135,7 +135,7 @@ export const topicController = {
         const topicId = req.params.topicId as string;
         const created = [];
         for (const q of req.body.questions || []) {
-          const mcq = await prisma.mCQQuestion.create({ data: { preparationCategoryId: catId, topicId, question: q.question, optionA: q.optionA, optionB: q.optionB, optionC: q.optionC, optionD: q.optionD, correctOption: q.correctOption, explanation: q.explanation || null, difficulty: q.difficulty || null } });
+          const mcq = await prisma.mCQQuestion.create({ data: { preparationCategoryId: catId, topicId, question: q.question, optionA: q.optionA, optionB: q.optionB, optionC: q.optionC, optionD: q.optionD, correctOption: q.correctOption, explanation: q.explanation || null, difficulty: q.difficulty || null, isPublished: q.isPublished ?? false } });
           created.push(mcq);
         }
         res.status(201).json({ items: created, count: created.length });

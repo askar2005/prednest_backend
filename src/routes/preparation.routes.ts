@@ -19,17 +19,14 @@ const topicSchema = z.object({
 const noteSchema = z.object({
   topicId: z.string().uuid().optional().nullable(),
   title: z.string().min(2),
-  content: z.string().optional().nullable(),
-  externalUrl: z.string().optional().nullable(),
-  tags: z.string().optional().nullable(),
-  type: z.enum(['NOTE', 'PDF']).optional(),
+  pdfUrl: z.string().optional().nullable(),
+  isPublished: z.boolean().optional(),
 });
 const noteUpdateSchema = z.object({
   topicId: z.string().uuid().optional().nullable(),
   title: z.string().min(2).optional(),
-  content: z.string().optional().nullable(),
-  externalUrl: z.string().optional().nullable(),
-  tags: z.string().optional().nullable(),
+  pdfUrl: z.string().optional().nullable(),
+  isPublished: z.boolean().optional(),
 });
 const mcqSchema = z.object({
   topicId: z.string().uuid().optional().nullable(),
@@ -41,6 +38,7 @@ const mcqSchema = z.object({
   correctOption: z.string().min(1),
   explanation: z.string().optional().nullable(),
   difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).optional().nullable(),
+  isPublished: z.boolean().optional(),
 });
 const videoSchema = z.object({
   topicId: z.string().uuid().optional().nullable(),
