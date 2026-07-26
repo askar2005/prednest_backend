@@ -33,12 +33,14 @@ app.use(express.json({ limit: '50mb' }));
 
 // Per-route rate limiters — skip OPTIONS so preflights never count
 const skipOpts = (req: any) => req.method === 'OPTIONS';
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, skip: skipOpts, message: { message: 'Too many login attempts. Try again later.' } });
-const globalLimiter = rateLimit({ windowMs: 60 * 1000, max: 100, skip: skipOpts, message: { message: 'Too many requests. Slow down.' } });
-// Apply auth rate limiter to login routes specifically
-app.use('/api/auth/login', authLimiter);
-app.use('/api/admin/login', authLimiter);
-// General rate limiter for all other routes (100 req/min, unlimited for OPTIONS)
+// Separate instances so each route has its own counter
+const studentAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, skip: skipOpts, message: { message: 'Too many login attempts. Try again later.' } });
+const adminAuthLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, skip: skipOpts, message: { message: 'Too many login attempts. Try again later.' } });
+const globalLimiter = rateLimit({ windowMs: 60 * 1000, max: 200, skip: skipOpts, message: { message: 'Too many requests. Slow down.' } });
+// Apply auth rate limiter to login routes specifically — each with its own counter
+app.use('/api/auth/login', studentAuthLimiter);
+app.use('/api/admin/login', adminAuthLimiter);
+// General rate limiter for all other routes (200 req/min, unlimited for OPTIONS)
 app.use(globalLimiter);
 
 app.use(morgan('combined'));
@@ -66,21 +68,15 @@ app.get('/health', (_req, res) => {
   });
 });
 
-function printRoutes(mountedAt: string, router: express.Router, depth = 0) {
-  const prefix = '  '.repeat(depth);
-  router.stack.forEach((layer: any) => {
+console.log('\n=== REGISTERED ROUTES ===');
+try {
+  (app as any)._router?.stack?.forEach((layer: any) => {
     if (layer.route) {
-      const methods = Object.keys(layer.route.methods).map((m) => m.toUpperCase()).join(',');
-      console.log(`[ROUTE] ${prefix}${methods} ${mountedAt}${layer.route.path}`);
-    } else if (layer.name === 'router' && layer.handle?.stack) {
-      const subPath = layer.regexp?.source ? layer.regexp.source.replace(/\\\//g, '/').replace(/\\$/g, '').replace(/\^/g, '').replace(/\?/g, '') : '/?';
-      const nextMount = subPath === '/?' ? mountedAt : `${mountedAt}${subPath.replace('/?', '')}`;
-      printRoutes(nextMount, layer.handle, depth);
+      const methods = Object.keys(layer.route.methods).map((m: string) => m.toUpperCase()).join(',');
+      console.log(`[ROUTE] ${methods} ${layer.route.path}`);
     }
   });
-}
-console.log('\n=== REGISTERED ROUTES ===');
-printRoutes('/', app._router);
+} catch { /* route print skipped */ }
 console.log('=== END ROUTES ===\n');
 
 app.use('/api', apiRouter);

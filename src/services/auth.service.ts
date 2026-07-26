@@ -62,30 +62,33 @@ export const authService = {
   },
 
   async login(input: LoginInput) {
-    log('login', 'Login attempt:', input.email.toLowerCase());
+    console.log('[AUTH-LOGIN] === REQUEST RECEIVED === email:', input.email.toLowerCase());
+    console.log('[AUTH-LOGIN] password length:', input.password?.length || 0);
     const user = await prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });
     if (!user) {
-      console.log('=== AUTH LOGIN === User NOT FOUND:', input.email.toLowerCase());
-      console.log('=== AUTH LOGIN === Reason: email not in database');
+      console.log('[AUTH-LOGIN] === USER NOT FOUND === email not in database:', input.email.toLowerCase());
       throw new AppError('Invalid credentials', 401);
     }
-    console.log('=== AUTH LOGIN === User found:', JSON.stringify({ id: user.id, email: user.email, role: user.role, isVerified: user.isVerified }));
+    console.log('[AUTH-LOGIN] === USER FOUND === id:', user.id, 'email:', user.email, 'role:', user.role, 'isVerified:', user.isVerified);
+    console.log('[AUTH-LOGIN] comparing password...');
     const ok = await verifyPassword(input.password, user.passwordHash);
-    console.log('=== AUTH LOGIN === Password match:', ok);
+    console.log('[AUTH-LOGIN] === PASSWORD MATCHED ===', ok);
     if (!ok) {
-      console.log('=== AUTH LOGIN === Password mismatch for user:', user.id);
+      console.log('[AUTH-LOGIN] === PASSWORD MISMATCH === for user:', user.id);
       throw new AppError('Invalid credentials', 401);
     }
     if (!user.isVerified) {
-      log('login', 'User not verified, sending new OTP');
+      console.log('[AUTH-LOGIN] user not verified, sending new OTP');
       const otp = generateOtp();
       const otpExpiry = getOtpExpiry();
       await prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiry } });
       await sendVerificationOtp(user.name, user.email, otp);
       throw new AppError('Please verify your email first. A new OTP has been sent.', 403);
     }
-    log('login', 'Login successful for:', user.email);
+    console.log('[AUTH-LOGIN] === PASSWORD VALID === generating JWT...');
     const token = signToken(user.id, user.role);
+    console.log('[AUTH-LOGIN] === JWT GENERATED === token length:', token.length);
+    console.log('[AUTH-LOGIN] === RESPONSE SENT === user:', user.id, 'email:', user.email);
     return { user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt }, token };
   },
 

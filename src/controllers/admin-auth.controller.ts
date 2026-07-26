@@ -9,7 +9,22 @@ export const adminAuthController = {
     try { res.json(await adminAuthService.verifyEmail(req.body.email, req.body.otp)); } catch (e) { next(e); }
   },
   login: async (req: Request, res: Response, next: NextFunction) => {
-    try { res.json(await adminAuthService.login(req.body.email, req.body.password)); } catch (e) { next(e); }
+    console.log('[ADMIN-LOGIN-CTRL] === LOGIN CONTROLLER CALLED ===');
+    console.log('[ADMIN-LOGIN-CTRL] body:', JSON.stringify(req.body));
+    console.log('[ADMIN-LOGIN-CTRL] email:', req.body?.email);
+    console.log('[ADMIN-LOGIN-CTRL] password length:', req.body?.password?.length || 0);
+    console.log('[ADMIN-LOGIN-CTRL] content-type:', req.headers['content-type']);
+    console.log('[ADMIN-LOGIN-CTRL] ip:', req.ip);
+    console.log('[ADMIN-LOGIN-CTRL] originalUrl:', req.originalUrl);
+    console.log('[ADMIN-LOGIN-CTRL] method:', req.method);
+    try {
+      const result = await adminAuthService.login(req.body.email, req.body.password);
+      console.log('[ADMIN-LOGIN-CTRL] === RESPONSE SENT ===');
+      res.json({ admin: result.admin, token: result.token });
+    } catch (e) {
+      console.log('[ADMIN-LOGIN-CTRL] === ERROR CAUGHT ===', e instanceof Error ? e.message : e);
+      next(e);
+    }
   },
   forgotPassword: async (req: Request, res: Response, next: NextFunction) => {
     try { res.json(await adminAuthService.forgotPassword(req.body.email)); } catch (e) { next(e); }
@@ -24,6 +39,7 @@ export const adminAuthController = {
     try { res.json({ user: await adminAuthService.getMe(req.user!.id) }); } catch (e) { next(e); }
   },
   logout: async (_req: Request, res: Response) => {
+    console.log('[ADMIN-LOGIN-CTRL] === LOGOUT CALLED ===');
     res.json({ message: 'Logged out successfully.' });
   },
   resendOtp: async (req: Request, res: Response, next: NextFunction) => {

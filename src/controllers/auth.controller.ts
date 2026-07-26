@@ -10,11 +10,20 @@ export async function verifyEmail(req: Request, res: Response, next: NextFunctio
 }
 
 export async function login(req: Request, res: Response, next: NextFunction) {
-  console.log('[LOGIN CTRL] req.body:', JSON.stringify(req.body));
-  console.log('[LOGIN CTRL] req.body.email:', req.body?.email);
-  console.log('[LOGIN CTRL] req.body.password length:', req.body?.password?.length || 0);
-  console.log('[LOGIN CTRL] content-type:', req.headers['content-type']);
-  try { res.json(await authService.login(req.body)); } catch (e) { next(e); }
+  console.log('[AUTH-LOGIN-CTRL] === LOGIN CONTROLLER CALLED ===');
+  console.log('[AUTH-LOGIN-CTRL] email:', req.body?.email);
+  console.log('[AUTH-LOGIN-CTRL] password length:', req.body?.password?.length || 0);
+  console.log('[AUTH-LOGIN-CTRL] content-type:', req.headers['content-type']);
+  console.log('[AUTH-LOGIN-CTRL] ip:', req.ip);
+  console.log('[AUTH-LOGIN-CTRL] originalUrl:', req.originalUrl);
+  try {
+    const result = await authService.login(req.body);
+    console.log('[AUTH-LOGIN-CTRL] === RESPONSE SENT ===');
+    res.json(result);
+  } catch (e) {
+    console.log('[AUTH-LOGIN-CTRL] === ERROR ===', e instanceof Error ? e.message : e);
+    next(e);
+  }
 }
 
 export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
