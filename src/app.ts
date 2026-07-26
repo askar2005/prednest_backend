@@ -25,8 +25,8 @@ app.use(cors({
     cb(null, allow);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Authorization', 'Content-Type'],
+  // No explicit methods/headers — let cors reflect whatever the browser requests,
+  // so mobile browsers that send additional headers (e.g. x-requested-with) always pass preflight.
 }));
 
 app.use(express.json({ limit: '50mb' }));

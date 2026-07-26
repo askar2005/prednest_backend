@@ -29,16 +29,34 @@ const catStorage = multer.diskStorage({
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+const extname = (name: string) => name.toLowerCase().split('.').pop() || '';
+const MIME_MAP: Record<string, string[]> = {
+  pdf: ['application/pdf'],
+  jpg: ['image/jpeg'], jpeg: ['image/jpeg'],
+  png: ['image/png'],
+  gif: ['image/gif'],
+  webp: ['image/webp'],
+  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+  xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  zip: ['application/zip'],
+  csv: ['text/csv'],
+  json: ['application/json'],
+};
+
 export const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     console.log('[MULTER] fileFilter check:', { fieldname: file.fieldname, originalname: file.originalname, mimetype: file.mimetype, size: file.size });
-    if (ALLOWED_TYPES.includes(file.mimetype)) {
-      console.log('[MULTER] Allowed:', file.mimetype);
+    const allowedMime = ALLOWED_TYPES.includes(file.mimetype);
+    const ext = extname(file.originalname);
+    const extMatches = MIME_MAP[ext]?.some((m) => file.mimetype === m || file.mimetype === 'application/octet-stream');
+    if (allowedMime || extMatches) {
+      console.log('[MULTER] Allowed:', file.mimetype, '(ext:', ext, ')');
       cb(null, true);
     } else {
-      console.log('[MULTER] Rejected:', file.mimetype, 'not in', ALLOWED_TYPES);
+      console.log('[MULTER] Rejected:', file.mimetype, '(ext:', ext, ') not in', ALLOWED_TYPES);
       cb(new Error(`File type ${file.mimetype} not allowed`));
     }
   },
