@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
+import { deleteFileByUrl } from '../services/upload.service.js';
 
 function getCid(req: Request) { return (req as any).__categoryId as string; }
 
@@ -70,6 +71,11 @@ export const notesController = {
 
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
+      const note = await prisma.note.findUnique({ where: { id: req.params.id as string } });
+      if (!note) throw new AppError('Note not found', 404);
+      if (note.pdfPublicId) {
+        await deleteFileByUrl(note.pdfUrl!).catch(() => {});
+      }
       await prisma.note.delete({ where: { id: req.params.id as string } });
       res.status(204).send();
     } catch (e) { next(e); }

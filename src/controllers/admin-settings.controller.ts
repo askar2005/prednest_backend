@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
+import { uploadFile, deleteFileByUrl } from '../services/upload.service.js';
 
 const profileSelect = {
   id: true, fullName: true, email: true, role: true, isVerified: true,
@@ -31,7 +32,23 @@ export const adminSettingsController = {
       const data: Record<string, unknown> = {};
       if (fullName !== undefined) data.fullName = fullName;
       if (displayName !== undefined) data.displayName = displayName;
-      if (profileImage !== undefined) data.profileImage = profileImage;
+
+      if (profileImage !== undefined) {
+        // If replacing with a new Cloudinary URL, delete old Cloudinary file
+        if (profileImage && profileImage.includes('cloudinary')) {
+          const admin = await prisma.admin.findUnique({ where: { id: req.user!.id } });
+          if (admin?.profileImagePublicId) {
+            await deleteFileByUrl(admin.profileImage!).catch(() => {});
+          }
+        }
+        data.profileImage = profileImage;
+        // If it's a Cloudinary URL, we'd need the publicId from the upload that produced it
+        // The frontend should send profileImagePublicId along with profileImage
+        if (req.body.profileImagePublicId) {
+          data.profileImagePublicId = req.body.profileImagePublicId;
+        }
+      }
+
       if (Object.keys(data).length === 0) throw new AppError('No fields to update', 400);
       const admin = await prisma.admin.update({ where: { id: req.user!.id }, data, select: profileSelect });
       res.json({ message: 'Profile updated successfully.', admin });

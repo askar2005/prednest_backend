@@ -46,6 +46,7 @@ model Admin {
   lastLoginAt          DateTime?
   lastPasswordChangeAt DateTime?
   profileImage         String?
+  profileImagePublicId String?
 }
 
 model PreparationCategory {
@@ -70,6 +71,7 @@ model PreparationCategory {
   negativeMarking       Float                  @default(0)
   passingPercentage     Float                  @default(40)
   coverImage            String?
+  coverImagePublicId    String?
   featured              Boolean                @default(false)
   gradientColor         String?
   icon                  String?
@@ -138,6 +140,7 @@ model Note {
   topicId     String
   title       String
   pdfUrl      String?
+  pdfPublicId String?
   isPublished Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -270,6 +273,7 @@ model PreviousYearQuestion {
   year                  Int
   title                 String
   pdfUrl                String?
+  pdfPublicId           String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
   description           String?
@@ -367,6 +371,8 @@ model File {
   mimeType        String
   size            Int
   path            String
+  secureUrl       String?
+  publicId        String?
   studyMaterialId String?
   createdAt       DateTime       @default(now())
   studyMaterial   StudyMaterial? @relation(fields: [studyMaterialId], references: [id])
@@ -388,6 +394,7 @@ model Attachment {
   studyMaterialId String
   fileName        String
   fileUrl         String
+  publicId        String?
   mimeType        String
   size            Int?
   createdAt       DateTime      @default(now())

@@ -12,6 +12,10 @@ const envSchema = z.object({
   BREVO_API_KEY: z.string().min(1),
   BREVO_SENDER_EMAIL: z.string().email().default('noreply@prepnest.com'),
   BREVO_SENDER_NAME: z.string().default('PrepNest Team'),
+  CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
+  CLOUDINARY_API_KEY: z.string().optional().default(''),
+  CLOUDINARY_API_SECRET: z.string().optional().default(''),
 });
 
 export const env = envSchema.parse(process.env);
+export const hasCloudinary = !!(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET);

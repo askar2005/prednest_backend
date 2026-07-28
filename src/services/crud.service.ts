@@ -27,7 +27,7 @@ const filterableFields = [
   'type', 'status', 'publishStatus',
 ] as const;
 
-export function createCrudService(model: ModelName, options?: { include?: any }) {
+export function createCrudService(model: ModelName, options?: { include?: any; beforeDelete?: (id: string, item: any) => Promise<void> }) {
   const delegate = (prisma as any)[model];
 
   return {
@@ -71,7 +71,11 @@ export function createCrudService(model: ModelName, options?: { include?: any })
       return delegate.update({ where: { id }, data });
     },
     async remove(id: string) {
-      await this.get(id);
+      const item = await delegate.findUnique({ where: { id } });
+      if (!item) throw new AppError('Not found', 404);
+      if (options?.beforeDelete) {
+        await options.beforeDelete(id, item);
+      }
       return delegate.delete({ where: { id } });
     },
   };

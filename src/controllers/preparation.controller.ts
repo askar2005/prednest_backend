@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
+import { uploadFile, deleteFileByUrl } from '../services/upload.service.js';
 
 const CATEGORY_NAMES: Record<string, string> = {
   gate: 'GATE Preparation',
@@ -257,18 +258,36 @@ export const preparationController = {
   uploadImage: async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.file) throw new AppError('No file uploaded', 400);
-      const cat = await prisma.preparationCategory.findUnique({ where: { slug: req.params.category as string } });
+      const slug = String(req.params.category);
+      const cat = await prisma.preparationCategory.findUnique({ where: { slug } });
       if (!cat) throw new AppError('Category not found', 404);
-      const coverImage = `/uploads/categories/${req.file.filename}`;
-      const updated = await prisma.preparationCategory.update({ where: { slug: req.params.category as string }, data: { coverImage } });
+
+      if (cat.coverImagePublicId && cat.coverImage) {
+        await deleteFileByUrl(cat.coverImage).catch(() => {});
+      }
+
+      const result = await uploadFile(req.file, 'categories', slug);
+      const updated = await prisma.preparationCategory.update({
+        where: { slug },
+        data: { coverImage: result.secureUrl, coverImagePublicId: result.publicId },
+      });
       res.json(updated);
     } catch (e) { next(e); }
   },
   deleteImage: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const cat = await prisma.preparationCategory.findUnique({ where: { slug: req.params.category as string } });
+      const slug = String(req.params.category);
+      const cat = await prisma.preparationCategory.findUnique({ where: { slug } });
       if (!cat) throw new AppError('Category not found', 404);
-      const updated = await prisma.preparationCategory.update({ where: { slug: req.params.category as string }, data: { coverImage: null } });
+
+      if (cat.coverImagePublicId && cat.coverImage) {
+        await deleteFileByUrl(cat.coverImage).catch(() => {});
+      }
+
+      const updated = await prisma.preparationCategory.update({
+        where: { slug },
+        data: { coverImage: null, coverImagePublicId: null },
+      });
       res.json(updated);
     } catch (e) { next(e); }
   },

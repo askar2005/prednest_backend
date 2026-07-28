@@ -6,6 +6,7 @@ import { requireAuth } from '../middlewares/require-auth.js';
 import { requireRole } from '../middlewares/require-role.js';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
+import { deleteFileByUrl } from '../services/upload.service.js';
 import {
   preparationCategorySchema,
   subjectSchema,
@@ -83,8 +84,37 @@ router.post('/preparation-categories', ...adminOnly, validateBody(preparationCat
 router.put('/preparation-categories/:id', ...adminOnly, validateBody(preparationCategorySchema as any), catController.update);
 router.delete('/preparation-categories/:id', ...adminOnly, catController.remove);
 
+// Resources with Cloudinary file cleanup on delete
+const cloudinaryCleanupModels: Record<string, string[]> = {
+  studyMaterial: ['pdfPublicId'],
+  previousYearQuestion: ['pdfPublicId'],
+  notification: ['thumbnailUrl', 'bannerUrl', 'attachmentUrl'],
+};
+
 for (const [path, model, schema] of resources) {
-  const service = createCrudService(model as any);
+  const cleanupFields = cloudinaryCleanupModels[model as string];
+  const service = createCrudService(model as any, {
+    beforeDelete: cleanupFields
+      ? async (_id: string, item: any) => {
+          for (const field of cleanupFields) {
+            if (item[field] && item[field].includes('cloudinary')) {
+              await deleteFileByUrl(item[field]).catch(() => {});
+            }
+          }
+          // Also clean up related File records for study materials
+          if (model === 'studyMaterial') {
+            const files = await prisma.file.findMany({ where: { studyMaterialId: _id } });
+            for (const file of files) {
+              if (file.publicId) await deleteFileByUrl(file.secureUrl || '').catch(() => {});
+            }
+            const attachments = await prisma.attachment.findMany({ where: { studyMaterialId: _id } });
+            for (const att of attachments) {
+              if (att.publicId) await deleteFileByUrl(att.fileUrl).catch(() => {});
+            }
+          }
+        }
+      : undefined,
+  });
   const controller = createCrudController(service);
   router.get(`/${path}`, controller.list);
   router.get(`/${path}/:id`, controller.get);

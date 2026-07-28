@@ -4,7 +4,8 @@ import { requireRole } from '../middlewares/require-role.js';
 import { validateBody } from '../middlewares/validate-body.js';
 import { preparationController } from '../controllers/preparation.controller.js';
 import { topicController } from '../controllers/topic.controller.js';
-import { upload, uploadCategoryImage } from '../middlewares/upload.js';
+import { multerUpload, singleFile, singleImage, singleCoverImage } from '../middlewares/upload.middleware.js';
+import { upload } from '../middlewares/upload.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -108,7 +109,7 @@ router.get('/:category/settings', ...anyAuth, preparationController.moduleSettin
 router.put('/:category/settings', ...withCategory, validateBody(moduleSettingsSchema), preparationController.moduleSettings.update);
 
 // Category Image Upload
-router.post('/:category/image', ...withCategory, uploadCategoryImage.single('coverImage'), preparationController.uploadImage);
+router.post('/:category/image', ...withCategory, singleCoverImage, preparationController.uploadImage);
 router.delete('/:category/image', ...withCategory, preparationController.deleteImage);
 
 // Topic-scoped CRUD (admin)

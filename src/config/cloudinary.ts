@@ -1,0 +1,17 @@
+import { v2 as cloudinary } from 'cloudinary';
+import { env, hasCloudinary } from './env.js';
+
+if (hasCloudinary) {
+  cloudinary.config({
+    cloud_name: env.CLOUDINARY_CLOUD_NAME,
+    api_key: env.CLOUDINARY_API_KEY,
+    api_secret: env.CLOUDINARY_API_SECRET,
+  });
+  console.log('[CLOUDINARY] configured for account:', env.CLOUDINARY_CLOUD_NAME);
+} else {
+  console.warn('[CLOUDINARY] not configured — uploads will use local storage');
+}
+
+export { cloudinary };
+export const ROOT_FOLDER = 'PrepNest';
+export { hasCloudinary };
