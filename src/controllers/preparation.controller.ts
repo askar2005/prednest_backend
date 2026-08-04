@@ -189,7 +189,7 @@ export const preparationController = {
   }},
   pyqCreate: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const pyq = await prisma.previousYearQuestion.create({ data: { preparationCategoryId: catId(req), year: req.body.year, title: req.body.title, pdfUrl: req.body.pdfUrl || null } });
+      const pyq = await prisma.previousYearQuestion.create({ data: { preparationCategoryId: catId(req), year: req.body.year, title: req.body.title, pdfUrl: req.body.pdfUrl || null, pdfPublicId: req.body.pdfPublicId || null } });
       res.status(201).json(pyq);
     } catch (e) { next(e); }
   },

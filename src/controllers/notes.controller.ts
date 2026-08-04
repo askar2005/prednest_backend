@@ -40,12 +40,14 @@ export const notesController = {
 
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const { title, pdfUrl, isPublished } = req.body;
+      const { title, pdfUrl, pdfPublicId, isPublished } = req.body;
+      console.log('[NOTES-CREATE] === DATABASE INSERT === title:', title, 'pdfUrl:', pdfUrl, 'pdfPublicId:', pdfPublicId);
       const note = await prisma.note.create({
         data: {
           topicId: req.params.topicId as string,
           title,
           pdfUrl: pdfUrl || null,
+          pdfPublicId: pdfPublicId || null,
           isPublished: isPublished ?? false,
         },
       });
@@ -55,16 +57,27 @@ export const notesController = {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const { title, pdfUrl, isPublished } = req.body;
+      const { title, pdfUrl, pdfPublicId, isPublished } = req.body;
+      const existing = await prisma.note.findUnique({ where: { id: req.params.id as string } });
+      if (!existing) throw new AppError('Note not found', 404);
+
       const data: any = {};
       if (title !== undefined) data.title = title;
       if (pdfUrl !== undefined) data.pdfUrl = pdfUrl;
+      if (pdfPublicId !== undefined) data.pdfPublicId = pdfPublicId;
       if (isPublished !== undefined) data.isPublished = isPublished;
+
+      // PDF is being replaced/removed → delete the old Cloudinary asset.
+      if (pdfUrl !== undefined && existing.pdfUrl && pdfUrl !== existing.pdfUrl) {
+        console.log('[NOTES-UPDATE] deleting old Cloudinary PDF:', existing.pdfUrl);
+        await deleteFileByUrl(existing.pdfUrl).catch(() => {});
+      }
 
       const note = await prisma.note.update({
         where: { id: req.params.id as string },
         data,
       });
+      console.log('[NOTES-UPDATE] === DATABASE VALUE === pdfUrl:', note.pdfUrl, 'pdfPublicId:', note.pdfPublicId);
       res.json(note);
     } catch (e) { next(e); }
   },

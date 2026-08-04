@@ -5,7 +5,6 @@ import { validateBody } from '../middlewares/validate-body.js';
 import { preparationController } from '../controllers/preparation.controller.js';
 import { topicController } from '../controllers/topic.controller.js';
 import { multerUpload, singleFile, singleImage, singleCoverImage } from '../middlewares/upload.middleware.js';
-import { upload } from '../middlewares/upload.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -152,7 +151,7 @@ router.put('/:category/topics/:topicId/mock-tests/:id', ...topicAdmin, topicCont
 router.delete('/:category/topics/:topicId/mock-tests/:id', ...topicAdmin, topicController.mockTests.delete);
 
 // MCQ Import/Export
-router.post('/:category/topics/:topicId/mcqs/import', ...topicAdmin, upload.single('file'), topicController.mcqImport);
+router.post('/:category/topics/:topicId/mcqs/import', ...topicAdmin, multerUpload.single('file'), topicController.mcqImport);
 router.get('/:category/topics/:topicId/mcqs/export/:format', ...topicAny, topicController.mcqExport);
 
 // Mock Test Builder

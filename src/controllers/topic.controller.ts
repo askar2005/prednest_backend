@@ -193,7 +193,7 @@ export const topicController = {
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const catId = (req as any).__categoryId as string;
-        const pyq = await prisma.previousYearQuestion.create({ data: { preparationCategoryId: catId, year: req.body.year, title: req.body.title, pdfUrl: req.body.pdfUrl || null, description: req.body.description || null, tags: req.body.tags || null } });
+        const pyq = await prisma.previousYearQuestion.create({ data: { preparationCategoryId: catId, year: req.body.year, title: req.body.title, pdfUrl: req.body.pdfUrl || null, pdfPublicId: req.body.pdfPublicId || null, description: req.body.description || null, tags: req.body.tags || null } });
         res.status(201).json(pyq);
       } catch (e) { next(e); }
     },

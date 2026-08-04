@@ -8,6 +8,7 @@ import fileRouter from './file.routes.js';
 import notesRouter from './notes.routes.js';
 import { adminNotificationRouter, studentNotificationRouter } from './notification.routes.js';
 import { dailyChallengeRouter } from './daily-challenge.routes.js';
+import migrationRouter from './migration.routes.js';
 
 export const apiRouter = Router();
 
@@ -27,3 +28,4 @@ apiRouter.use('/', fileRouter);
 apiRouter.use('/', notesRouter);
 apiRouter.use('/', dailyChallengeRouter);
 apiRouter.use('/admin', dailyChallengeRouter);
+apiRouter.use('/admin', migrationRouter);

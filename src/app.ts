@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
-import path from 'path';
 import { apiRouter } from './routes/index.js';
 import { errorHandler } from './middlewares/error-handler.js';
 import { notFound } from './middlewares/not-found.js';
@@ -44,8 +43,6 @@ app.use('/api/admin/login', adminAuthLimiter);
 app.use(globalLimiter);
 
 app.use(morgan('combined'));
-
-app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
 app.get('/', (_req, res) => {
   res.json({
