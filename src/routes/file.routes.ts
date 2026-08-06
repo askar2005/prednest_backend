@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import path from 'path';
-import { Readable } from 'stream';
+import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { multerUpload, getUploadCategoryForField } from '../middlewares/upload.middleware.js';
 import { uploadFile, deleteFile } from '../services/upload.service.js';
@@ -12,11 +12,12 @@ const router = Router();
 /**
  * Shared fetch-and-serve logic for the /files/preview and /files/download
  * endpoints. Accepts inline PDF data: URLs and Cloudinary-hosted http(s) URLs
- * only (no open proxy).
+ * only (no open proxy). Always resolves to a full in-memory Buffer so that
+ * byte-range requests can be honoured by the caller.
  */
 async function resolveAsset(
   raw: string
-): Promise<{ ok: true; buffer?: Buffer; stream?: Readable } | { ok: false; status: number; message: string }> {
+): Promise<{ ok: true; buffer: Buffer } | { ok: false; status: number; message: string }> {
   try {
     if (raw.startsWith('data:application/pdf;base64,')) {
       const buffer = Buffer.from(raw.split(',')[1] ?? '', 'base64');
@@ -33,8 +34,9 @@ async function resolveAsset(
 
     const upstream = await fetch(target.toString(), { redirect: 'follow' });
     if (!upstream.ok) return { ok: false, status: upstream.status, message: 'Upstream fetch failed' };
-    if (!upstream.body) return { ok: false, status: 502, message: 'Empty upstream body' };
-    return { ok: true, stream: Readable.fromWeb(upstream.body as import('stream/web').ReadableStream) };
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    if (!buffer.byteLength) return { ok: false, status: 502, message: 'Empty upstream body' };
+    return { ok: true, buffer };
   } catch {
     return { ok: false, status: 400, message: 'Invalid preview URL' };
   }
@@ -44,6 +46,39 @@ function sendPdfBuffer(res: any, buffer: Buffer, disposition: string) {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', disposition);
   res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(buffer);
+}
+
+/**
+ * Serves the (already validated, already reset any headers) PDF bytes with full
+ * HTTP Range support so native PDF viewers can seek into large documents.
+ * Never redirects — always streams the bytes back.
+ */
+function servePdfStream(req: Request, res: Response, buffer: Buffer, disposition: string) {
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', disposition);
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.setHeader('Accept-Ranges', 'bytes');
+
+  const total = buffer.length;
+  const rangeHeader = req.headers.range;
+  const rm = typeof rangeHeader === 'string' && /^bytes=(\d*)-(\d*)$/.exec(rangeHeader);
+  if (rm) {
+    let start = rm[1] ? parseInt(rm[1], 10) : 0;
+    let end = rm[2] ? parseInt(rm[2], 10) : total - 1;
+    if (Number.isNaN(start)) start = 0;
+    if (Number.isNaN(end)) end = total - 1;
+    if (start > end || start >= total) {
+      res.setHeader('Content-Range', `bytes */${total}`);
+      return res.status(416).end();
+    }
+    end = Math.min(end, total - 1);
+    res.setHeader('Content-Range', `bytes ${start}-${end}/${total}`);
+    res.setHeader('Content-Length', end - start + 1);
+    return res.status(206).end(buffer.subarray(start, end + 1));
+  }
+
+  res.setHeader('Content-Length', total);
   res.send(buffer);
 }
 
@@ -58,20 +93,16 @@ function sendPdfBuffer(res: any, buffer: Buffer, disposition: string) {
  * explicit `inline` disposition, giving the frontend a URL the browser always
  * renders natively.
  *
- * Security: only res.cloudinary.com hosts (and inline PDF data: URLs) are
- * accepted — no open proxy.
+ * Auth: Bearer JWT required (requireAuth) — previews are only served to
+ * authenticated users; unauthenticated requests get 401.
  */
-router.get('/files/preview', requireAuth, async (req, res) => {
+router.get('/files/preview', requireAuth, async (req: any, res) => {
   const raw = typeof req.query.url === 'string' ? req.query.url : '';
   if (!raw) return res.status(400).json({ message: 'Missing ?url=' });
 
   const result = await resolveAsset(raw);
   if (!result.ok) return res.status(result.status).json({ message: result.message });
-  if (result.buffer) return sendPdfBuffer(res, result.buffer, 'inline; filename="preview.pdf"');
-  res.set('Content-Type', 'application/pdf');
-  res.set('Content-Disposition', 'inline; filename="preview.pdf"');
-  res.set('Cache-Control', 'public, max-age=3600');
-  result.stream!.pipe(res);
+  return servePdfStream(req, res, result.buffer, 'inline; filename="preview.pdf"');
 });
 
 /**
@@ -84,11 +115,11 @@ router.get('/files/download', requireAuth, async (req, res) => {
 
   const result = await resolveAsset(raw);
   if (!result.ok) return res.status(result.status).json({ message: result.message });
-  if (result.buffer) return sendPdfBuffer(res, result.buffer, 'attachment; filename="document.pdf"');
   res.set('Content-Type', 'application/pdf');
   res.set('Content-Disposition', 'attachment; filename="document.pdf"');
   res.set('Cache-Control', 'public, max-age=3600');
-  result.stream!.pipe(res);
+  res.setHeader('Content-Length', String(result.buffer.length));
+  return res.send(result.buffer);
 });
 
 router.post('/files/upload', requireAuth, requireRole('ADMIN'), async (req, res, next) => {
