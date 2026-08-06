@@ -114,8 +114,16 @@ export const dailyChallengeSchema = z.object({
   optionB: z.string().min(1, 'Option B is required'),
   optionC: z.string().min(1, 'Option C is required'),
   optionD: z.string().min(1, 'Option D is required'),
-  correctAnswer: z.string().min(1, 'Correct Answer is required'),
+  correctAnswer: z.enum(['A', 'B', 'C', 'D'], { message: 'Correct Answer must be A, B, C or D' }),
   explanation: z.string().nullish(),
+  description: z.string().nullish(),
+  topic: z.string().nullish(),
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).nullish(),
+  tags: z.array(z.string()).max(20).nullish(),
+});
+
+export const dailyChallengeSubmitSchema = z.object({
+  selectedAnswer: z.enum(['A', 'B', 'C', 'D'], { message: 'Selected answer must be A, B, C or D' }),
 });
 
 export const dailyChallengeUpdateSchema = dailyChallengeSchema.partial();
