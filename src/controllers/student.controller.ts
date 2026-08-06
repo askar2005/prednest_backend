@@ -94,11 +94,12 @@ export const studentController = {
       const test = await prisma.mockTest.findUnique({
         where: { id },
         include: {
-          questions: { orderBy: { orderIndex: 'asc' } },
+          questions: { orderBy: { orderIndex: 'asc' }, select: { id: true, question: true, optionA: true, optionB: true, optionC: true, optionD: true, marks: true, negativeMarks: true, orderIndex: true, questionType: true } },
           _count: { select: { questions: true } },
         },
       });
       if (!test) throw new AppError('Mock test not found', 404);
+      // Never expose correctOption/explanation before a student submits.
       res.json(test);
     } catch (e) { next(e); }
   },
@@ -113,19 +114,33 @@ export const studentController = {
         include: { questions: true },
       });
       if (!test) throw new AppError('Mock test not found', 404);
+      if (test.publishStatus !== 'PUBLISHED') throw new AppError('This mock test is not available yet', 403);
 
       let score = 0;
+      let correctCount = 0;
+      let wrongCount = 0;
+      let skippedCount = 0;
       const total = test.questions.length;
+      const negativeMarking = test.negativeMarking || 0;
 
       for (const q of test.questions) {
         const userAnswer = answers[q.id];
-        if (userAnswer && userAnswer === q.correctOption) {
+        if (!userAnswer) { skippedCount += 1; continue; }
+        if (userAnswer === q.correctOption) {
           score += q.marks;
+          correctCount += 1;
+        } else {
+          score -= negativeMarking;
+          wrongCount += 1;
         }
       }
 
       const result = await prisma.result.create({
-        data: { userId: req.user!.id, mockTestId, score, total },
+        data: {
+          userId: req.user!.id, mockTestId, score: Math.max(0, score), total,
+          correctCount, wrongCount, skippedCount,
+          accuracy: total > 0 ? (correctCount / total) * 100 : 0,
+        },
       });
 
       let progress = await prisma.progress.findUnique({ where: { userId: req.user!.id } });
@@ -143,7 +158,7 @@ export const studentController = {
         data: { testsCompleted: totalAttempts, averageScore: avgScore, accuracy: acc },
       });
 
-      res.json({ result: { id: result.id, score, total, percentage: pct }, passed: score >= (test.passingMarks || 0) });
+      res.json({ result: { id: result.id, score: Math.max(0, score), total, correctCount, wrongCount, skippedCount, percentage: pct }, passed: score >= (test.passingMarks || 0) });
     } catch (e) { next(e); }
   },
 

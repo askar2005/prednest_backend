@@ -8,62 +8,41 @@ function p(v: string | string[] | undefined): string {
 export const dailyChallengeController = {
   list: async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log('[DC-CTRL] list() called');
-      const result = await dailyChallengeService.list();
-      console.log('[DC-CTRL] list() success, items:', result.total);
-      res.json(result);
-    } catch (e: any) {
-      console.error('[DC-CTRL] list() ERROR:', e.name, e.message);
-      console.error('[DC-CTRL] stack:', e.stack);
+      res.json(await dailyChallengeService.list());
+    } catch (e) {
       next(e);
     }
   },
 
   get: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log('[DC-CTRL] get() called, id:', req.params.id);
-      const result = await dailyChallengeService.get(p(req.params.id));
-      res.json(result);
-    } catch (e: any) {
-      console.error('[DC-CTRL] get() ERROR:', e.name, e.message);
-      console.error('[DC-CTRL] stack:', e.stack);
+      res.json(await dailyChallengeService.get(p(req.params.id)));
+    } catch (e) {
       next(e);
     }
   },
 
   create: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log('[DC-CTRL] create() called, body:', JSON.stringify(req.body));
-      const result = await dailyChallengeService.create(req.body);
-      console.log('[DC-CTRL] create() success, id:', result.id);
-      res.status(201).json(result);
-    } catch (e: any) {
-      console.error('[DC-CTRL] create() ERROR:', e.name, e.message);
-      console.error('[DC-CTRL] stack:', e.stack);
+      res.status(201).json(await dailyChallengeService.create(req.body));
+    } catch (e) {
       next(e);
     }
   },
 
   update: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log('[DC-CTRL] update() called, id:', req.params.id, 'body:', JSON.stringify(req.body));
-      const result = await dailyChallengeService.update(p(req.params.id), req.body);
-      res.json(result);
-    } catch (e: any) {
-      console.error('[DC-CTRL] update() ERROR:', e.name, e.message);
-      console.error('[DC-CTRL] stack:', e.stack);
+      res.json(await dailyChallengeService.update(p(req.params.id), req.body));
+    } catch (e) {
       next(e);
     }
   },
 
   remove: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log('[DC-CTRL] remove() called, id:', req.params.id);
       await dailyChallengeService.remove(p(req.params.id));
       res.json({ success: true });
-    } catch (e: any) {
-      console.error('[DC-CTRL] remove() ERROR:', e.name, e.message);
-      console.error('[DC-CTRL] stack:', e.stack);
+    } catch (e) {
       next(e);
     }
   },

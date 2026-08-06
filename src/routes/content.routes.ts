@@ -28,7 +28,7 @@ const resources = [
   ['subjects', 'subject', subjectSchema],
   ['topics', 'topic', topicSchema],
   ['study-materials', 'studyMaterial', studyMaterialSchema],
-  ['mcq-questions', 'mcqQuestion', mcqSchema],
+  ['mcq-questions', 'MCQQuestion', mcqSchema],
   ['mock-tests', 'mockTest', mockTestSchema],
   ['mock-test-questions', 'mockTestQuestion', mockTestQuestionSchema],
   ['interview-questions', 'interviewQuestion', interviewQuestionSchema],

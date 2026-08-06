@@ -183,14 +183,31 @@ export const preparationController = {
 
   pyqs: { list: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const items = await prisma.previousYearQuestion.findMany({ where: { preparationCategoryId: catId(req) }, orderBy: { year: 'desc' } });
+      const isAdmin = req.user?.role === 'ADMIN';
+      const where: any = { preparationCategoryId: catId(req) };
+      if (!isAdmin) where.isPublished = true;
+      const items = await prisma.previousYearQuestion.findMany({ where, orderBy: { year: 'desc' } });
       res.json({ items, total: items.length });
     } catch (e) { next(e); }
   }},
   pyqCreate: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const pyq = await prisma.previousYearQuestion.create({ data: { preparationCategoryId: catId(req), year: req.body.year, title: req.body.title, pdfUrl: req.body.pdfUrl || null, pdfPublicId: req.body.pdfPublicId || null } });
+      const pyq = await prisma.previousYearQuestion.create({ data: { preparationCategoryId: catId(req), year: req.body.year, title: req.body.title, pdfUrl: req.body.pdfUrl || null, pdfPublicId: req.body.pdfPublicId || null, isPublished: req.body.isPublished ?? false, description: req.body.description || null, tags: req.body.tags || null } });
       res.status(201).json(pyq);
+    } catch (e) { next(e); }
+  },
+  pyqUpdate: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data: any = {};
+      if (req.body.year !== undefined) data.year = req.body.year;
+      if (req.body.title !== undefined) data.title = req.body.title;
+      if (req.body.pdfUrl !== undefined) data.pdfUrl = req.body.pdfUrl || null;
+      if (req.body.pdfPublicId !== undefined) data.pdfPublicId = req.body.pdfPublicId || null;
+      if (req.body.isPublished !== undefined) data.isPublished = req.body.isPublished;
+      if (req.body.description !== undefined) data.description = req.body.description || null;
+      if (req.body.tags !== undefined) data.tags = req.body.tags || null;
+      const pyq = await prisma.previousYearQuestion.update({ where: { id: req.params.id as string }, data });
+      res.json(pyq);
     } catch (e) { next(e); }
   },
   pyqDelete: async (req: Request, res: Response, next: NextFunction) => {

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
+import { deleteFileByUrl } from '../services/upload.service.js';
 import * as XLSX from 'xlsx';
 import { parse as csvParse } from 'csv-parse/sync';
 
@@ -93,21 +94,42 @@ export const topicController = {
     },
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const catId = (req as any).__categoryId as string;
-        const note = await prisma.studyMaterial.create({
-          data: { preparationCategoryId: catId, topicId: req.params.topicId as string, title: req.body.title, type: req.body.type || 'NOTE', content: req.body.content || null, externalUrl: req.body.externalUrl || null, searchText: req.body.tags || null, fileSize: req.body.fileSize || null, tagsString: req.body.tagsString || null },
+        const note = await prisma.note.create({
+          data: {
+            topicId: req.params.topicId as string,
+            title: req.body.title,
+            pdfUrl: req.body.pdfUrl || null,
+            pdfPublicId: req.body.pdfPublicId || null,
+            isPublished: req.body.isPublished ?? false,
+          },
         });
         res.status(201).json(note);
       } catch (e) { next(e); }
     },
     update: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const note = await prisma.studyMaterial.update({ where: { id: req.params.id as string }, data: req.body });
+        const existing = await prisma.note.findUnique({ where: { id: req.params.id as string } });
+        if (!existing) throw new AppError('Note not found', 404);
+        const data: any = {};
+        if (req.body.title !== undefined) data.title = req.body.title;
+        if (req.body.pdfUrl !== undefined) data.pdfUrl = req.body.pdfUrl || null;
+        if (req.body.pdfPublicId !== undefined) data.pdfPublicId = req.body.pdfPublicId || null;
+        if (req.body.isPublished !== undefined) data.isPublished = req.body.isPublished;
+        if (req.body.pdfUrl !== undefined && existing.pdfUrl && req.body.pdfUrl !== existing.pdfUrl) {
+          await deleteFileByUrl(existing.pdfUrl).catch(() => {});
+        }
+        const note = await prisma.note.update({ where: { id: req.params.id as string }, data });
         res.json(note);
       } catch (e) { next(e); }
     },
     delete: async (req: Request, res: Response, next: NextFunction) => {
-      try { await prisma.studyMaterial.delete({ where: { id: req.params.id as string } }); res.status(204).send(); } catch (e) { next(e); }
+      try {
+        const note = await prisma.note.findUnique({ where: { id: req.params.id as string } });
+        if (!note) throw new AppError('Note not found', 404);
+        if (note.pdfPublicId) await deleteFileByUrl(note.pdfUrl || '').catch(() => {});
+        await prisma.note.delete({ where: { id: req.params.id as string } });
+        res.status(204).send();
+      } catch (e) { next(e); }
     },
   },
 
@@ -186,15 +208,32 @@ export const topicController = {
   pyqs: {
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const items = await prisma.previousYearQuestion.findMany({ where: { preparationCategory: { topics: { some: { id: req.params.topicId as string } } } }, orderBy: { year: 'desc' } });
+        const isAdmin = req.user?.role === 'ADMIN';
+        const where: any = { preparationCategory: { topics: { some: { id: req.params.topicId as string } } } };
+        if (!isAdmin) where.isPublished = true;
+        const items = await prisma.previousYearQuestion.findMany({ where, orderBy: { year: 'desc' } });
         res.json({ items, total: items.length });
       } catch (e) { next(e); }
     },
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const catId = (req as any).__categoryId as string;
-        const pyq = await prisma.previousYearQuestion.create({ data: { preparationCategoryId: catId, year: req.body.year, title: req.body.title, pdfUrl: req.body.pdfUrl || null, pdfPublicId: req.body.pdfPublicId || null, description: req.body.description || null, tags: req.body.tags || null } });
+        const pyq = await prisma.previousYearQuestion.create({ data: { preparationCategoryId: catId, topicId: req.params.topicId as string, year: req.body.year, title: req.body.title, pdfUrl: req.body.pdfUrl || null, pdfPublicId: req.body.pdfPublicId || null, isPublished: req.body.isPublished ?? false, description: req.body.description || null, tags: req.body.tags || null } });
         res.status(201).json(pyq);
+      } catch (e) { next(e); }
+    },
+    update: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const data: any = {};
+        if (req.body.year !== undefined) data.year = req.body.year;
+        if (req.body.title !== undefined) data.title = req.body.title;
+        if (req.body.pdfUrl !== undefined) data.pdfUrl = req.body.pdfUrl || null;
+        if (req.body.pdfPublicId !== undefined) data.pdfPublicId = req.body.pdfPublicId || null;
+        if (req.body.isPublished !== undefined) data.isPublished = req.body.isPublished;
+        if (req.body.description !== undefined) data.description = req.body.description || null;
+        if (req.body.tags !== undefined) data.tags = req.body.tags || null;
+        const pyq = await prisma.previousYearQuestion.update({ where: { id: req.params.id as string }, data });
+        res.json(pyq);
       } catch (e) { next(e); }
     },
     delete: async (req: Request, res: Response, next: NextFunction) => {

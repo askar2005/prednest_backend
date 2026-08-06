@@ -3,47 +3,28 @@ import { AppError } from '../utils/app-error.js';
 
 export const dailyChallengeService = {
   async list() {
-    console.log('[DC-SVC] list() querying database...');
-    let items;
-    try {
-      items = await prisma.dailyChallenge.findMany({ orderBy: { createdAt: 'desc' } });
-      console.log('[DC-SVC] list() found', items.length, 'items');
-    } catch (e: any) {
-      console.error('[DC-SVC] list() Prisma error:', e.name, e.message);
-      console.error('[DC-SVC] stack:', e.stack);
-      throw e;
-    }
+    const items = await prisma.dailyChallenge.findMany({ orderBy: { createdAt: 'desc' } });
     return { items, total: items.length };
   },
 
   async get(id: string) {
-    console.log('[DC-SVC] get() id:', id);
     const item = await prisma.dailyChallenge.findUnique({ where: { id } });
     if (!item) throw new AppError('Challenge not found', 404);
     return item;
   },
 
   async create(data: any) {
-    console.log('[DC-SVC] create() data:', JSON.stringify(data));
-    const result = await prisma.dailyChallenge.create({ data: { ...data, status: 'QUEUE' } });
-    console.log('[DC-SVC] create() success, id:', result.id);
-    return result;
+    return prisma.dailyChallenge.create({ data: { ...data, status: 'QUEUE' } });
   },
 
   async update(id: string, data: any) {
-    console.log('[DC-SVC] update() id:', id, 'data:', JSON.stringify(data));
     await this.get(id);
-    const result = await prisma.dailyChallenge.update({ where: { id }, data });
-    console.log('[DC-SVC] update() success');
-    return result;
+    return prisma.dailyChallenge.update({ where: { id }, data });
   },
 
   async remove(id: string) {
-    console.log('[DC-SVC] remove() id:', id);
     await this.get(id);
-    const result = await prisma.dailyChallenge.delete({ where: { id } });
-    console.log('[DC-SVC] remove() success');
-    return result;
+    return prisma.dailyChallenge.delete({ where: { id } });
   },
 
   async getToday(userId: string) {
@@ -140,7 +121,6 @@ export const dailyChallengeService = {
     // If no challenges exist at all, seed a sample one
     const total = await prisma.dailyChallenge.count();
     if (total === 0) {
-      console.log('[Scheduler] No daily challenges found. Seeding a sample question...');
       await prisma.dailyChallenge.create({
         data: {
           question: 'Which language runs in the browser?',
@@ -154,7 +134,6 @@ export const dailyChallengeService = {
           publishedAt: new Date(),
         },
       });
-      console.log('[Scheduler] Sample daily challenge seeded successfully');
       return;
     }
 

@@ -9,7 +9,7 @@ const searchFields: Record<string, string[]> = {
   subject: ['name', 'slug'],
   topic: ['name', 'slug', 'description'],
   studyMaterial: ['title', 'content', 'searchText'],
-  mcqQuestion: ['question', 'explanation'],
+  MCQQuestion: ['question', 'explanation'],
   mockTest: ['title', 'description'],
   mockTestQuestion: ['question', 'explanation'],
   interviewQuestion: ['question', 'answer', 'sampleResponse', 'tips'],

@@ -12,11 +12,6 @@ import migrationRouter from './migration.routes.js';
 
 export const apiRouter = Router();
 
-apiRouter.use((req, _res, next) => {
-  console.log(`[API] ${req.method} ${req.originalUrl}`);
-  next();
-});
-
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/admin', adminRouter);                     // Admin auth + profile routes
 apiRouter.use('/student', studentRouter);

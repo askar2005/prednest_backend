@@ -20,12 +20,9 @@ console.log('[CORS] Allowed origins:', corsOrigins);
 app.use(cors({
   origin: (origin, cb) => {
     const allow = !origin || corsOrigins.includes(origin as string);
-    console.log(`[CORS] origin=${origin || '(same-origin)'} allow=${allow} matched=${origin ? corsOrigins.includes(origin as string) : '-'}`);
     cb(null, allow);
   },
   credentials: true,
-  // No explicit methods/headers — let cors reflect whatever the browser requests,
-  // so mobile browsers that send additional headers (e.g. x-requested-with) always pass preflight.
 }));
 
 app.use(express.json({ limit: '50mb' }));

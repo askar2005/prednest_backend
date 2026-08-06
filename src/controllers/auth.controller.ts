@@ -10,18 +10,10 @@ export async function verifyEmail(req: Request, res: Response, next: NextFunctio
 }
 
 export async function login(req: Request, res: Response, next: NextFunction) {
-  console.log('[AUTH-LOGIN-CTRL] === LOGIN CONTROLLER CALLED ===');
-  console.log('[AUTH-LOGIN-CTRL] email:', req.body?.email);
-  console.log('[AUTH-LOGIN-CTRL] password length:', req.body?.password?.length || 0);
-  console.log('[AUTH-LOGIN-CTRL] content-type:', req.headers['content-type']);
-  console.log('[AUTH-LOGIN-CTRL] ip:', req.ip);
-  console.log('[AUTH-LOGIN-CTRL] originalUrl:', req.originalUrl);
   try {
     const result = await authService.login(req.body);
-    console.log('[AUTH-LOGIN-CTRL] === RESPONSE SENT ===');
     res.json(result);
   } catch (e) {
-    console.log('[AUTH-LOGIN-CTRL] === ERROR ===', e instanceof Error ? e.message : e);
     next(e);
   }
 }

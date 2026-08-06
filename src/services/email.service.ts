@@ -1,15 +1,6 @@
 import { env } from '../config/env.js';
 import { AppError } from '../utils/app-error.js';
 
-function logPayload(label: string, data: unknown) {
-  console.log(`[EMAIL] ${label}:`, JSON.stringify(data, null, 2));
-}
-
-function maskKey(key: string): string {
-  if (key.length <= 8) return '****';
-  return key.slice(0, 4) + '****' + key.slice(-4);
-}
-
 type SendEmailParams = {
   to: { email: string; name: string };
   subject: string;
@@ -17,21 +8,6 @@ type SendEmailParams = {
 };
 
 export async function sendEmail({ to, subject, htmlContent }: SendEmailParams) {
-  const payload = {
-    sender: { name: env.BREVO_SENDER_NAME, email: env.BREVO_SENDER_EMAIL },
-    to: [to],
-    subject,
-    htmlContent: htmlContent.slice(0, 200) + '...',
-  };
-
-  console.log('=== BREVO EMAIL DEBUG ===');
-  console.log('[EMAIL] API Key (masked):', maskKey(env.BREVO_API_KEY));
-  console.log('[EMAIL] Sender:', env.BREVO_SENDER_NAME, `<${env.BREVO_SENDER_EMAIL}>`);
-  logPayload('Recipient', to);
-  console.log('[EMAIL] Subject:', subject);
-  logPayload('Request payload', payload);
-  console.log('[EMAIL] Sending to Brevo API...');
-
   const response = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -46,11 +22,8 @@ export async function sendEmail({ to, subject, htmlContent }: SendEmailParams) {
     }),
   });
 
-  console.log('[EMAIL] Brevo response status:', response.status, response.statusText);
-
   if (!response.ok) {
     const errorBody = await response.text();
-    console.log('[EMAIL] Brevo response body:', errorBody);
 
     let exactError = errorBody;
     try {
@@ -62,9 +35,6 @@ export async function sendEmail({ to, subject, htmlContent }: SendEmailParams) {
 
     throw new AppError(`Email delivery failed: ${exactError}`, 500);
   }
-
-  console.log('[EMAIL] Email sent successfully to', to.email);
-  console.log('=== BREVO EMAIL DEBUG END ===');
 }
 
 function otpTemplate(name: string, otp: string, purpose: 'verification' | 'reset') {

@@ -49,7 +49,10 @@ const pyqSchema = z.object({
   year: z.number().int().positive(),
   title: z.string().min(2),
   pdfUrl: z.string().optional().nullable(),
+  pdfPublicId: z.string().optional().nullable(),
+  isPublished: z.boolean().optional(),
 });
+const pyqUpdateSchema = pyqSchema.partial().omit({ year: true }).extend({ year: z.number().int().positive().optional() });
 const mockTestEditSchema = z.object({
   title: z.string().min(2),
   description: z.string().optional(),
@@ -92,6 +95,7 @@ router.delete('/videos/:id', ...adminOnly, preparationController.videoDelete);
 // Previous Year Questions
 router.get('/:category/pyqs', ...anyAuth, preparationController.pyqs.list);
 router.post('/:category/pyqs', ...withCategory, validateBody(pyqSchema), preparationController.pyqCreate);
+router.put('/pyqs/:id', ...adminOnly, validateBody(pyqUpdateSchema), preparationController.pyqUpdate);
 router.delete('/pyqs/:id', ...adminOnly, preparationController.pyqDelete);
 
 // Mock Tests
@@ -141,7 +145,8 @@ router.delete('/:category/topics/:topicId/videos/:id', ...topicAdmin, topicContr
 
 // PYQs (topic-scoped)
 router.get('/:category/topics/:topicId/pyqs', ...topicAny, topicController.pyqs.list);
-router.post('/:category/topics/:topicId/pyqs', ...topicAdmin, topicController.pyqs.create);
+router.post('/:category/topics/:topicId/pyqs', ...topicAdmin, validateBody(pyqSchema), topicController.pyqs.create);
+router.put('/:category/topics/:topicId/pyqs/:id', ...topicAdmin, validateBody(pyqUpdateSchema), topicController.pyqs.update);
 router.delete('/:category/topics/:topicId/pyqs/:id', ...topicAdmin, topicController.pyqs.delete);
 
 // Mock Tests (topic-scoped)

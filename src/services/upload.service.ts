@@ -34,8 +34,6 @@ export async function uploadFile(
     throw new AppError(validation.error!, 400);
   }
 
-  console.log('[UPLOAD-SVC] upload started — category:', category, 'original:', file.originalname, 'size:', file.size, 'mime:', file.mimetype);
-
   return uploadToCloudinary(file, category, slug);
 }
 
@@ -78,20 +76,6 @@ async function uploadToCloudinary(
       stream.end(file.buffer);
     });
 
-    console.log('[UPLOAD-SVC] === UPLOAD RESPONSE ===');
-    console.log('[UPLOAD-SVC] upload completed —', JSON.stringify({
-      asset_id: result.asset_id,
-      public_id: result.public_id,
-      resource_type: result.resource_type,
-      type: result.type,
-      access_mode: result.access_mode,
-      secure_url: result.secure_url,
-      url: result.url,
-      bytes: result.bytes,
-      format: result.format,
-      created_at: result.created_at,
-    }));
-
     // Guard: a non-image (e.g. PDF) must never come back as an image resource.
     // If Cloudinary stored it as 'image', the /image/upload/ URL will 401 on delivery.
     const urlLooksLikeImage = !!result.secure_url && result.secure_url.includes('/image/upload/');
@@ -123,17 +107,13 @@ export async function deleteFile(publicId: string): Promise<DeleteResult> {
     throw new AppError('Cloudinary is not configured.', 500);
   }
 
-  console.log('[UPLOAD-SVC] delete started — publicId:', publicId);
-
   try {
     const result = await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
     if (result.result === 'ok') {
-      console.log('[UPLOAD-SVC] delete completed (image) — publicId:', publicId);
       return { deleted: true, publicId };
     }
 
     const rawResult = await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
-    console.log('[UPLOAD-SVC] delete completed (raw) — publicId:', publicId, 'result:', rawResult.result);
     return { deleted: rawResult.result === 'ok', publicId };
   } catch (err) {
     console.error('[UPLOAD-SVC] Cloudinary delete failed:', err instanceof Error ? err.message : err);
@@ -144,10 +124,7 @@ export async function deleteFile(publicId: string): Promise<DeleteResult> {
 export async function deleteFileByUrl(url: string | null | undefined): Promise<DeleteResult | null> {
   if (!url) return null;
   const publicId = extractPublicId(url);
-  if (!publicId) {
-    console.log('[UPLOAD-SVC] deleteByUrl: no Cloudinary publicId extracted from:', url);
-    return null;
-  }
+  if (!publicId) return null;
   return deleteFile(publicId);
 }
 

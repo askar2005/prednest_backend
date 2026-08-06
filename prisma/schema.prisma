@@ -127,6 +127,7 @@ model Topic {
   mockTestQuestions     MockTestQuestion[]
   notes                 Note[]
   notifications         Notification[]
+  previousYearQuestions PreviousYearQuestion[]
   studyMaterials        StudyMaterial[]
   preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
   subject               Subject?            @relation(fields: [subjectId], references: [id])
@@ -270,16 +271,19 @@ model Video {
 model PreviousYearQuestion {
   id                    String              @id @default(uuid())
   preparationCategoryId String
+  topicId               String?
   year                  Int
   title                 String
   pdfUrl                String?
   pdfPublicId           String?
+  isPublished           Boolean             @default(false)
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
   description           String?
   downloads             Int                 @default(0)
   tags                  String?
   preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
+  topic                 Topic?              @relation(fields: [topicId], references: [id], onDelete: SetNull)
 }
 
 model MockTestQuestion {

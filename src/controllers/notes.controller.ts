@@ -8,8 +8,11 @@ function getCid(req: Request) { return (req as any).__categoryId as string; }
 export const notesController = {
   async listByTopic(req: Request, res: Response, next: NextFunction) {
     try {
+      const isAdmin = req.user?.role === 'ADMIN';
+      const where: any = { topicId: req.params.topicId as string };
+      if (!isAdmin) where.isPublished = true;
       const items = await prisma.note.findMany({
-        where: { topicId: req.params.topicId as string },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       res.json({ items, total: items.length });
@@ -29,8 +32,9 @@ export const notesController = {
 
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const note = await prisma.note.findUnique({
-        where: { id: req.params.id as string },
+      const isAdmin = req.user?.role === 'ADMIN';
+      const note = await prisma.note.findFirst({
+        where: { id: req.params.id as string, ...(isAdmin ? {} : { isPublished: true }) },
         include: { topic: { select: { name: true } } },
       });
       if (!note) throw new AppError('Note not found', 404);
@@ -41,7 +45,6 @@ export const notesController = {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const { title, pdfUrl, pdfPublicId, isPublished } = req.body;
-      console.log('[NOTES-CREATE] === DATABASE INSERT === title:', title, 'pdfUrl:', pdfUrl, 'pdfPublicId:', pdfPublicId);
       const note = await prisma.note.create({
         data: {
           topicId: req.params.topicId as string,
@@ -69,7 +72,6 @@ export const notesController = {
 
       // PDF is being replaced/removed → delete the old Cloudinary asset.
       if (pdfUrl !== undefined && existing.pdfUrl && pdfUrl !== existing.pdfUrl) {
-        console.log('[NOTES-UPDATE] deleting old Cloudinary PDF:', existing.pdfUrl);
         await deleteFileByUrl(existing.pdfUrl).catch(() => {});
       }
 
@@ -77,7 +79,6 @@ export const notesController = {
         where: { id: req.params.id as string },
         data,
       });
-      console.log('[NOTES-UPDATE] === DATABASE VALUE === pdfUrl:', note.pdfUrl, 'pdfPublicId:', note.pdfPublicId);
       res.json(note);
     } catch (e) { next(e); }
   },
