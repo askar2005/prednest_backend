@@ -498,7 +498,13 @@ export const mockTestService = {
       if (!existing.durationMinutes || existing.durationMinutes <= 0) throw new AppError('Set a valid duration before publishing', 400);
       if (!existing.totalMarks || existing.totalMarks <= 0) throw new AppError('Test has no marks. Add questions first.', 400);
     }
-    const updated = await prisma.mockTest.update({ where: { id }, data: { publishStatus: status } });
+    const updated = await prisma.mockTest.update({
+      where: { id },
+      data: {
+        publishStatus: status,
+        scheduledAt: status === 'PUBLISHED' && existing.scheduledAt && existing.scheduledAt <= new Date() ? null : existing.scheduledAt,
+      },
+    });
     return updated;
   },
 
