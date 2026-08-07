@@ -271,7 +271,6 @@ export const mockTestService = {
     const where: any = {};
     if (role !== 'ADMIN') {
       where.publishStatus = 'PUBLISHED';
-      where.OR = [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }];
     } else {
       if (status) where.publishStatus = status;
     }
@@ -343,8 +342,8 @@ export const mockTestService = {
       },
     });
     if (!test) throw new AppError('Mock test not found', 404);
-    if (test.publishStatus !== 'PUBLISHED') throw new AppError('This mock test is not available yet', 403);
-    if (test.scheduledAt && test.scheduledAt > new Date()) throw new AppError('This mock test is not open yet', 403);
+    if (test.publishStatus === 'DRAFT') throw new AppError('This mock test is not available yet', 403);
+    if (test.publishStatus !== 'PUBLISHED') throw new AppError('Mock test not found', 404);
     return test;
   },
 
@@ -498,13 +497,7 @@ export const mockTestService = {
       if (!existing.durationMinutes || existing.durationMinutes <= 0) throw new AppError('Set a valid duration before publishing', 400);
       if (!existing.totalMarks || existing.totalMarks <= 0) throw new AppError('Test has no marks. Add questions first.', 400);
     }
-    const updated = await prisma.mockTest.update({
-      where: { id },
-      data: {
-        publishStatus: status,
-        scheduledAt: status === 'PUBLISHED' && existing.scheduledAt && existing.scheduledAt <= new Date() ? null : existing.scheduledAt,
-      },
-    });
+    const updated = await prisma.mockTest.update({ where: { id }, data: { publishStatus: status } });
     return updated;
   },
 
@@ -520,8 +513,8 @@ export const mockTestService = {
       include: { questions: { ...questionInclude(), orderBy: { orderIndex: 'asc' } } },
     });
     if (!test) throw new AppError('Mock test not found', 404);
-    if (test.publishStatus !== 'PUBLISHED') throw new AppError('This mock test is not available yet', 403);
-    if (test.scheduledAt && test.scheduledAt > new Date()) throw new AppError('This mock test is not open yet', 403);
+    if (test.publishStatus === 'DRAFT') throw new AppError('This mock test is not available yet', 403);
+    if (test.publishStatus !== 'PUBLISHED') throw new AppError('Mock test not found', 404);
 
     let score = 0;
     let correctCount = 0;

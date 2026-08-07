@@ -169,11 +169,11 @@ async function main() {
   }, at);
   await req('POST', `/mock-tests/${sched.data?.id}/publish`, { status: 'PUBLISHED' }, at);
   const listUser3 = await req('GET', '/mock-tests?search=' + MARK, {}, ua.token);
-  check(7, 'future-scheduled test hidden from students', listUser3.status === 200 && !listUser3.data?.items?.some((i: any) => i.id === sched.data?.id));
+  check(7, 'published test visible even with future scheduledAt', listUser3.status === 200 && listUser3.data?.items?.some((i: any) => i.id === sched.data?.id));
   const getSched = await req('GET', `/student/mock-tests/${sched.data?.id}`, {}, ua.token);
-  check(7, 'future-scheduled test not attemptable -> 403', getSched.status === 403);
-  const subSched = await req('POST', '/student/mock-tests/submit', { mockTestId: sched.data?.id, answers: {} }, ua.token);
-  check(7, 'future-scheduled submit rejected -> 403', subSched.status === 403);
+  check(7, 'published test opens -> 200 (scheduledAt no longer gates)', getSched.status === 200);
+  const subSched = await req('POST', '/student/mock-tests/submit', { mockTestId: sched.data?.id, answers: {} }, ub.token);
+  check(7, 'published test submit accepted -> 200 (scheduledAt no longer gates)', subSched.status === 200);
 
   // ---- 8. Attempt payload leaks no answers ----
   const attempt = await req('GET', `/student/mock-tests/${full.id}`, {}, ua.token);
@@ -278,8 +278,14 @@ async function main() {
   check(20, 'archive -> ARCHIVED', arc.status === 200 && arc.data?.publishStatus === 'ARCHIVED');
   const listUser4 = await req('GET', '/mock-tests?search=' + MARK + '+Full+Suite', {}, ua.token);
   check(20, 'archived hidden from students', !listUser4.data?.items?.some((i: any) => i.id === full.id));
+  const getArchived = await req('GET', `/student/mock-tests/${full.id}`, {}, ua.token);
+  check(20, 'archived attempt -> 404', getArchived.status === 404, `status=${getArchived.status} msg=${getArchived.data?.message}`);
+  const subArchived = await req('POST', '/student/mock-tests/submit', { mockTestId: full.id, answers: {} }, ua.token);
+  check(20, 'archived submit -> 404', subArchived.status === 404, `status=${subArchived.status}`);
   const unarc = await req('POST', `/mock-tests/${full.id}/archive/restore`, {}, at);
   check(20, 'restore -> DRAFT', unarc.status === 200 && unarc.data?.publishStatus === 'DRAFT');
+  const getDraftAfterRestore = await req('GET', `/student/mock-tests/${full.id}`, {}, ua.token);
+  check(20, 'draft attempt -> 403', getDraftAfterRestore.status === 403, `status=${getDraftAfterRestore.status} msg=${getDraftAfterRestore.data?.message}`);
 
   // ---- 21. Admin list filters + counts ----
   const adminList = await req('GET', `/mock-tests?search=${MARK}&status=DRAFT&limit=100`, {}, at);
