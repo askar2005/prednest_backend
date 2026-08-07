@@ -13,6 +13,13 @@ import migrationRouter from './migration.routes.js';
 
 export const apiRouter = Router();
 
+apiRouter.get('/version', (_req, res) => {
+  res.json({
+    marker: 'mock-test-v2',
+    commit: process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION || null,
+  });
+});
+
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/admin', adminRouter);                     // Admin auth + profile routes
 apiRouter.use('/student', studentRouter);

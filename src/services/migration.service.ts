@@ -149,7 +149,6 @@ export async function diagnoseAsset(assetId: string): Promise<any> {
 
   if (hasCloudinary) {
     const publicId = (record as any).publicId || (record as any).pdfPublicId;
-    const pdfUrl = (record as any).secureUrl || (record as any).pdfUrl || '';
 
     if (publicId) {
       for (const rt of ['image', 'raw'] as const) {

@@ -1,6 +1,5 @@
 import multer from 'multer';
-import { Request, Response, NextFunction } from 'express';
-import { getCategoryLimits, type UploadCategory } from '../utils/file-validation.js';
+import type { UploadCategory } from '../utils/file-validation.js';
 
 // In-memory storage — buffers files in memory for streaming to Cloudinary
 const storage = multer.memoryStorage();

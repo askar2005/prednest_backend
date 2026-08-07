@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
-const BASE = 'http://localhost:4000/api';
+const BASE = process.env.MT_TEST_BASE || 'http://localhost:4000/api';
 const MARK = 'MT-';
 const QUESTION_TYPE_LABEL: Record<string, string> = {
   MCQ: 'MCQ', MULTIPLE_SELECT: 'Multi-Select', TRUE_FALSE: 'True/False', SHORT_ANSWER: 'Short Answer',

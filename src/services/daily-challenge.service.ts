@@ -219,7 +219,7 @@ export const dailyChallengeService = {
   },
 
   async updateStreak(userId: string, isCorrect: boolean, completedDay: Date) {
-    let streak = await prisma.userStreak.findUnique({ where: { userId } });
+    const streak = await prisma.userStreak.findUnique({ where: { userId } });
 
     if (!streak) {
       return prisma.userStreak.create({

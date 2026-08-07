@@ -51,7 +51,7 @@ function otpTemplate(name: string, otp: string, purpose: 'verification' | 'reset
     <tr><td align="center">
       <table width="480" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 40px;">
         <tr><td align="center" style="padding-bottom: 24px;">
-          <h1 style="font-size: 24px; font-weight: 700; color: #0f172a; margin: 0;">PrepNest</h1>
+          <h1 style="font-size: 24px; font-weight: 700; color: #0f172a; margin: 0;">${title}</h1>
         </td></tr>
         <tr><td style="padding-bottom: 8px;">
           <p style="font-size: 16px; color: #0f172a; margin: 0;">Hello <strong>${name}</strong>,</p>

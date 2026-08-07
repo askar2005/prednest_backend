@@ -4,7 +4,7 @@ import { requireRole } from '../middlewares/require-role.js';
 import { validateBody } from '../middlewares/validate-body.js';
 import { preparationController } from '../controllers/preparation.controller.js';
 import { topicController } from '../controllers/topic.controller.js';
-import { multerUpload, singleFile, singleImage, singleCoverImage } from '../middlewares/upload.middleware.js';
+import { multerUpload, singleCoverImage } from '../middlewares/upload.middleware.js';
 import { z } from 'zod';
 
 const router = Router();

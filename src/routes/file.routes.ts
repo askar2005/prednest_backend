@@ -42,18 +42,6 @@ async function resolveAsset(
   }
 }
 
-function sendPdfBuffer(res: any, buffer: Buffer, disposition: string) {
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', disposition);
-  res.setHeader('Cache-Control', 'public, max-age=3600');
-  res.send(buffer);
-}
-
-/**
- * Serves the (already validated, already reset any headers) PDF bytes with full
- * HTTP Range support so native PDF viewers can seek into large documents.
- * Never redirects — always streams the bytes back.
- */
 function servePdfStream(req: Request, res: Response, buffer: Buffer, disposition: string) {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', disposition);
@@ -191,7 +179,7 @@ router.delete('/files/:id', requireAuth, requireRole('ADMIN'), async (req, res) 
 
     await prisma.file.delete({ where: { id: file.id } });
     res.status(204).send();
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: 'Failed to delete file' });
   }
 });

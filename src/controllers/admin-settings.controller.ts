@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
-import { uploadFile, deleteFileByUrl } from '../services/upload.service.js';
+import { deleteFileByUrl } from '../services/upload.service.js';
 
 const profileSelect = {
   id: true, fullName: true, email: true, role: true, isVerified: true,
