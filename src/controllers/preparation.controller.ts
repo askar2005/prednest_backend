@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
 import { uploadFile, deleteFileByUrl } from '../services/upload.service.js';
+import { mockTestService } from '../services/mock-test.service.js';
 
 const CATEGORY_NAMES: Record<string, string> = {
   gate: 'GATE Preparation',
@@ -225,17 +226,18 @@ export const preparationController = {
   }},
   mockTestCreate: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const test = await prisma.mockTest.create({
-        data: { preparationCategoryId: catId(req), title: req.body.title, description: req.body.description || '', durationMinutes: req.body.durationMinutes || 60, negativeMarking: req.body.negativeMarking || 0, publishStatus: req.body.publishStatus || 'DRAFT' },
-      });
-      res.status(201).json({ ...test, _count: { questions: 0 } });
+      const test = await mockTestService.create({ ...req.body, preparationCategoryId: catId(req), publishStatus: req.body.publishStatus || 'DRAFT' });
+      res.status(201).json({ ...test, _count: { questions: (test as any).questions?.length || 0 } });
     } catch (e) { next(e); }
   },
   mockTestUpdate: async (req: Request, res: Response, next: NextFunction) => {
-    try { res.json(await prisma.mockTest.update({ where: { id: req.params.id as string }, data: req.body })); } catch (e) { next(e); }
+    try {
+      const test = await mockTestService.update(req.params.id as string, { ...req.body, preparationCategoryId: req.body.preparationCategoryId || catId(req) });
+      res.json(test);
+    } catch (e) { next(e); }
   },
   mockTestDelete: async (req: Request, res: Response, next: NextFunction) => {
-    try { await prisma.mockTest.delete({ where: { id: req.params.id as string } }); res.status(204).send(); } catch (e) { next(e); }
+    try { await mockTestService.remove(req.params.id as string); res.status(204).send(); } catch (e) { next(e); }
   },
 
   analytics: async (req: Request, res: Response, next: NextFunction) => {

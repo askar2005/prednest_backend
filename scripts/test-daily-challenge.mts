@@ -52,10 +52,15 @@ async function main() {
   const ub = await signupAndLogin('DC UB', 'dc_ub');
   if (!at || !ua.token || !ub.token) throw new Error('auth setup failed');
 
-  // Reset today: archive whatever was auto-published at startup so advance() is deterministic
+  // Reset: archive whatever was auto-published at startup so advance() is deterministic
   const ct0 = await req('GET', '/daily-challenges/counts', undefined, at);
   const todayId = ct0.data?.today?.id;
   if (todayId) await req('POST', `/daily-challenges/${todayId}/archive`, {}, at);
+  // Also clear any leftover QUEUE items (older than test markers) so the oldest-queue logic picks our markers
+  const qList = await req('GET', '/daily-challenges?status=QUEUE&limit=100', {}, at);
+  for (const item of qList.data?.items || []) {
+    await req('POST', `/daily-challenges/${item.id}/archive`, {}, at).catch(() => {});
+  }
 
   // 1. Create
   const c1 = await req('POST', '/daily-challenges', {

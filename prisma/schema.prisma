@@ -247,6 +247,10 @@ model MockTest {
   topic                 Topic?              @relation(fields: [topicId], references: [id])
   questions             MockTestQuestion[]
   results               Result[]
+
+  @@index([preparationCategoryId])
+  @@index([publishStatus, preparationCategoryId])
+  @@index([topicId])
 }
 
 model Video {
@@ -289,28 +293,36 @@ model PreviousYearQuestion {
 model MockTestQuestion {
   id            String               @id @default(uuid())
   mockTestId    String
-  topicId       String?
-  mcqQuestionId String?
-  question      String
-  optionA       String?
-  optionB       String?
-  optionC       String?
-  optionD       String?
-  correctOption String?
-  explanation   String?
-  marks         Int                  @default(1)
-  negativeMarks Float                @default(0)
-  orderIndex    Int                  @default(0)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  questionType  QuestionType         @default(MCQ)
-  answerRecords AnswerRecord[]
-  fillBlank     FillBlankQuestion?
-  mcqQuestion   MCQQuestion?         @relation(fields: [mcqQuestionId], references: [id])
-  mockTest      MockTest             @relation(fields: [mockTestId], references: [id], onDelete: Cascade)
-  topic         Topic?               @relation(fields: [topicId], references: [id])
-  shortAnswer   ShortAnswerQuestion?
-  trueFalse     TrueFalseQuestion?
+  topicId        String?
+  mcqQuestionId  String?
+  question       String
+  optionA        String?
+  optionB        String?
+  optionC        String?
+  optionD        String?
+  correctOption  String?
+  correctOptions String[]             @default([])
+  correctBoolean Boolean?
+  answerText     String?
+  alternatives   String?
+  keywords       String?
+  caseSensitive  Boolean              @default(false)
+  explanation    String?
+  marks          Int                  @default(1)
+  negativeMarks  Float                @default(0)
+  orderIndex     Int                  @default(0)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  questionType   QuestionType         @default(MCQ)
+  answerRecords  AnswerRecord[]
+  fillBlank      FillBlankQuestion?
+  mcqQuestion    MCQQuestion?         @relation(fields: [mcqQuestionId], references: [id])
+  mockTest       MockTest             @relation(fields: [mockTestId], references: [id], onDelete: Cascade)
+  topic          Topic?               @relation(fields: [topicId], references: [id])
+  shortAnswer    ShortAnswerQuestion?
+  trueFalse      TrueFalseQuestion?
+
+  @@index([mockTestId, orderIndex])
 }
 
 model ShortAnswerQuestion {
@@ -350,13 +362,18 @@ model AnswerRecord {
   resultId           String
   mockTestQuestionId String
   selectedOption     String?
+  selectedOptions    String[]         @default([])
   textAnswer         String?
+  booleanAnswer      Boolean?
   isCorrect          Boolean
   marksAwarded       Float            @default(0)
   timeTaken          Int?
   createdAt          DateTime         @default(now())
   question           MockTestQuestion @relation(fields: [mockTestQuestionId], references: [id], onDelete: Cascade)
   result             Result           @relation(fields: [resultId], references: [id], onDelete: Cascade)
+
+  @@index([resultId])
+  @@index([mockTestQuestionId])
 }
 
 model NoteVersion {
@@ -491,8 +508,8 @@ model Result {
   id             String         @id @default(uuid())
   userId         String
   mockTestId     String
-  score          Int            @default(0)
-  total          Int            @default(0)
+  score          Float          @default(0)
+  total          Float          @default(0)
   status         ResultStatus   @default(COMPLETED)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -507,6 +524,9 @@ model Result {
   answers        AnswerRecord[]
   mockTest       MockTest       @relation(fields: [mockTestId], references: [id], onDelete: Cascade)
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([mockTestId])
+  @@index([userId])
 }
 
 model Notification {
@@ -605,9 +625,12 @@ enum PublishStatus {
 
 enum QuestionType {
   MCQ
+  MULTIPLE_SELECT
   SHORT_ANSWER
   TRUE_FALSE
   FILL_BLANK
+  NUMERICAL
+  PARAGRAPH
   CODING
 }
 

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
 import { deleteFileByUrl } from '../services/upload.service.js';
+import { mockTestService, buildQuestionData } from '../services/mock-test.service.js';
 import * as XLSX from 'xlsx';
 import { parse as csvParse } from 'csv-parse/sync';
 
@@ -254,20 +255,19 @@ export const topicController = {
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const catId = (req as any).__categoryId as string;
-        const test = await prisma.mockTest.create({
-          data: { preparationCategoryId: catId, title: req.body.title, description: req.body.description || '', durationMinutes: req.body.durationMinutes || 60, negativeMarking: req.body.negativeMarking || 0, passingMarks: req.body.passingMarks || 40, publishStatus: req.body.publishStatus || 'DRAFT' },
-        });
-        res.status(201).json({ ...test, _count: { questions: 0, results: 0 } });
+        const topicId = req.params.topicId as string;
+        const test = await mockTestService.create({ ...req.body, preparationCategoryId: catId, topicId });
+        res.status(201).json({ ...test, _count: { questions: (test as any).questions?.length || 0, results: 0 } });
       } catch (e) { next(e); }
     },
     update: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const test = await prisma.mockTest.update({ where: { id: req.params.id as string }, data: req.body });
+        const test = await mockTestService.update(req.params.id as string, { ...req.body, preparationCategoryId: req.body.preparationCategoryId || (req as any).__categoryId });
         res.json(test);
       } catch (e) { next(e); }
     },
     delete: async (req: Request, res: Response, next: NextFunction) => {
-      try { await prisma.mockTest.delete({ where: { id: req.params.id as string } }); res.status(204).send(); } catch (e) { next(e); }
+      try { await mockTestService.remove(req.params.id as string); res.status(204).send(); } catch (e) { next(e); }
     },
   },
 
@@ -389,43 +389,8 @@ export const topicController = {
     try {
       const catId = (req as any).__categoryId as string;
       const topicId = req.params.topicId as string;
-      const { title, description, durationMinutes, passingMarks, negativeMarking, publishStatus, scheduledAt, questions } = req.body;
-
-      const test = await prisma.mockTest.create({
-        data: {
-          preparationCategoryId: catId,
-          topicId,
-          title,
-          description: description || '',
-          durationMinutes: durationMinutes || 60,
-          passingMarks: passingMarks || 40,
-          negativeMarking: negativeMarking || 0,
-          publishStatus: publishStatus || 'DRAFT',
-          scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-          questions: {
-            create: (questions || []).map((q: any, idx: number) => ({
-              topicId,
-              question: q.question,
-              questionType: q.questionType || 'MCQ',
-              optionA: q.optionA || null,
-              optionB: q.optionB || null,
-              optionC: q.optionC || null,
-              optionD: q.optionD || null,
-              correctOption: q.correctOption || null,
-              explanation: q.explanation || null,
-              marks: q.marks || 1,
-              negativeMarks: q.negativeMarks || 0,
-              orderIndex: idx,
-              ...(q.questionType === 'SHORT_ANSWER' ? { shortAnswer: { create: { answer: q.answer || '', keywords: q.keywords || null, explanation: q.explanation || null } } } : {}),
-              ...(q.questionType === 'TRUE_FALSE' ? { trueFalse: { create: { correctAnswer: q.correctAnswer === true || q.correctAnswer === 'true', explanation: q.explanation || null } } } : {}),
-              ...(q.questionType === 'FILL_BLANK' ? { fillBlank: { create: { correctAnswer: q.answer || '', alternatives: q.alternatives || null, explanation: q.explanation || null } } } : {}),
-            })),
-          },
-        },
-        include: { questions: { include: { shortAnswer: true, trueFalse: true, fillBlank: true }, orderBy: { orderIndex: 'asc' } }, _count: { select: { questions: true, results: true } } },
-      });
-
-      res.status(201).json({ ...test, _count: { questions: test.questions.length, results: 0 } });
+      const test = await mockTestService.create({ ...req.body, preparationCategoryId: catId, topicId });
+      res.status(201).json({ ...test, _count: { questions: (test as any).questions?.length || 0, results: 0 } });
     } catch (e) { next(e); }
   },
 
@@ -435,35 +400,19 @@ export const topicController = {
       const { questions } = req.body;
       if (!questions?.length) throw new AppError('Questions required', 400);
 
+      const existing = await prisma.mockTest.findUnique({ where: { id: mockTestId } });
+      if (!existing) throw new AppError('Mock test not found', 404);
+
       const lastOrder = await prisma.mockTestQuestion.findFirst({ where: { mockTestId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true } });
       let nextIdx = (lastOrder?.orderIndex ?? -1) + 1;
 
       const created = [];
       for (const q of questions) {
-        const question = await prisma.mockTestQuestion.create({
-          data: {
-            mockTestId,
-            question: q.question,
-            questionType: q.questionType || 'MCQ',
-            optionA: q.optionA || null,
-            optionB: q.optionB || null,
-            optionC: q.optionC || null,
-            optionD: q.optionD || null,
-            correctOption: q.correctOption || null,
-            explanation: q.explanation || null,
-            marks: q.marks || 1,
-            negativeMarks: q.negativeMarks || 0,
-            orderIndex: nextIdx++,
-            ...(q.questionType === 'SHORT_ANSWER' ? { shortAnswer: { create: { answer: q.answer || '', keywords: q.keywords || null } } } : {}),
-            ...(q.questionType === 'TRUE_FALSE' ? { trueFalse: { create: { correctAnswer: q.correctAnswer === true || q.correctAnswer === 'true' } } } : {}),
-            ...(q.questionType === 'FILL_BLANK' ? { fillBlank: { create: { correctAnswer: q.answer || '', alternatives: q.alternatives || null } } } : {}),
-          },
-          include: { shortAnswer: true, trueFalse: true, fillBlank: true },
-        });
+        const data = buildQuestionData(q, nextIdx++, existing.topicId);
+        const question = await prisma.mockTestQuestion.create({ data: { ...data, mockTestId } as any, include: { shortAnswer: true, trueFalse: true, fillBlank: true } });
         created.push(question);
       }
 
-      // Update totalMarks
       const total = await prisma.mockTestQuestion.aggregate({ where: { mockTestId }, _sum: { marks: true } });
       await prisma.mockTest.update({ where: { id: mockTestId }, data: { totalMarks: total._sum.marks || 0 } });
 
@@ -473,15 +422,11 @@ export const topicController = {
 
   getMockTestWithQuestions: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const test = await prisma.mockTest.findUnique({
-        where: { id: req.params.id as string },
-        include: {
-          questions: { include: { shortAnswer: true, trueFalse: true, fillBlank: true }, orderBy: { orderIndex: 'asc' } },
-          _count: { select: { questions: true, results: true } },
-        },
-      });
-      if (!test) throw new AppError('Mock test not found', 404);
-      res.json(test);
+      const id = req.params.id as string;
+      if (req.user?.role === 'ADMIN') {
+        return res.json(await mockTestService.get(id));
+      }
+      return res.json(await mockTestService.getForAttempt(id));
     } catch (e) { next(e); }
   },
 

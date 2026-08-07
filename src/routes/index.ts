@@ -8,6 +8,7 @@ import fileRouter from './file.routes.js';
 import notesRouter from './notes.routes.js';
 import { adminNotificationRouter, studentNotificationRouter } from './notification.routes.js';
 import { dailyChallengeRouter } from './daily-challenge.routes.js';
+import { mockTestRouter } from './mock-test.routes.js';
 import migrationRouter from './migration.routes.js';
 
 export const apiRouter = Router();
@@ -18,6 +19,7 @@ apiRouter.use('/student', studentRouter);
 apiRouter.use('/notifications', studentNotificationRouter);
 apiRouter.use('/admin/notifications', adminNotificationRouter);
 apiRouter.use('/preparation', preparationRouter);
+apiRouter.use('/', mockTestRouter);                       // Mock Test module (shadows legacy generic CRUD)
 apiRouter.use('/', contentRouter);
 apiRouter.use('/', fileRouter);
 apiRouter.use('/', notesRouter);
