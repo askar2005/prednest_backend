@@ -1,5 +1,6 @@
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
+import { Prisma } from '@prisma/client';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -210,19 +211,21 @@ export const dailyChallengeService = {
 
     const isCorrect = selectedAnswer === challenge.correctAnswer;
 
-    const attempt = await prisma.userDailyChallenge.create({
-      data: { userId, challengeId, selectedAnswer, isCorrect },
-    });
-    await this.updateStreak(userId, isCorrect, pubDay);
+    return prisma.$transaction(async (tx) => {
+      const attempt = await tx.userDailyChallenge.create({
+        data: { userId, challengeId, selectedAnswer, isCorrect },
+      });
+      await this.updateStreak(userId, isCorrect, dayOf(new Date()), tx);
 
-    return { attempt, correctAnswer: challenge.correctAnswer, explanation: challenge.explanation };
+      return { attempt, correctAnswer: challenge.correctAnswer, explanation: challenge.explanation };
+    });
   },
 
-  async updateStreak(userId: string, isCorrect: boolean, completedDay: Date) {
-    const streak = await prisma.userStreak.findUnique({ where: { userId } });
+  async updateStreak(userId: string, isCorrect: boolean, completedDay: Date, tx: Prisma.TransactionClient = prisma) {
+    const streak = await tx.userStreak.findUnique({ where: { userId } });
 
     if (!streak) {
-      return prisma.userStreak.create({
+      return tx.userStreak.create({
         data: {
           userId,
           currentStreak: isCorrect ? 1 : 0,
@@ -235,10 +238,22 @@ export const dailyChallengeService = {
     const last = streak.lastCompletedDate ? dayOf(streak.lastCompletedDate) : null;
     if (last) {
       const diff = diffDays(completedDay, last);
-      if (diff === 0) return streak;
+      if (diff === 0) {
+        if (isCorrect && streak.currentStreak === 0) {
+          return tx.userStreak.update({
+            where: { userId },
+            data: {
+              currentStreak: 1,
+              longestStreak: Math.max(1, streak.longestStreak),
+              lastCompletedDate: completedDay,
+            },
+          });
+        }
+        return streak;
+      }
       if (diff === 1) {
         const current = isCorrect ? streak.currentStreak + 1 : 0;
-        return prisma.userStreak.update({
+        return tx.userStreak.update({
           where: { userId },
           data: {
             currentStreak: current,
@@ -251,7 +266,7 @@ export const dailyChallengeService = {
     }
 
     const current = isCorrect ? 1 : 0;
-    return prisma.userStreak.update({
+    return tx.userStreak.update({
       where: { userId },
       data: {
         currentStreak: current,

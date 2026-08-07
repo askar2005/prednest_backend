@@ -167,6 +167,23 @@ async function main() {
   const wrong = await prisma.userStreak.findUnique({ where: { userId: us2.userId } });
   check(18, 'wrong answer sets streak 0', wrong?.currentStreak === 0 && wrong?.longestStreak === 9);
 
+  // 19. Same-day credit: duplicates never double-count; correct-after-wrong on the same
+  //     calendar day (e.g. same-day replaced challenge) must credit the day exactly once.
+  const us3 = await signupAndLogin('DC US3', 'dc_us3');
+  await dailyChallengeService.updateStreak(us3.userId, true, today);
+  await dailyChallengeService.updateStreak(us3.userId, true, today);
+  const once = await prisma.userStreak.findUnique({ where: { userId: us3.userId } });
+  check(19, 'correct twice same day credits once (no double increment)', once?.currentStreak === 1 && once?.longestStreak === 1);
+  const us4 = await signupAndLogin('DC US4', 'dc_us4');
+  await prisma.userStreak.create({ data: { userId: us4.userId, currentStreak: 0, longestStreak: 3, lastCompletedDate: today } });
+  await dailyChallengeService.updateStreak(us4.userId, true, today);
+  const recovered = await prisma.userStreak.findUnique({ where: { userId: us4.userId } });
+  check(19, 'correct answer after earlier wrong same day credits day (0 -> 1), longest kept', recovered?.currentStreak === 1 && recovered?.longestStreak === 3);
+  const us5 = await signupAndLogin('DC US5', 'dc_us5');
+  await dailyChallengeService.updateStreak(us5.userId, false, today);
+  const wrongDay = await prisma.userStreak.findUnique({ where: { userId: us5.userId } });
+  check(19, 'wrong answer first same day stays 0', wrongDay?.currentStreak === 0 && wrongDay?.longestStreak === 0);
+
   // cleanup marker challenges
   for (const id of [dup?.id, m2?.id, m3?.id, m4?.id]) if (id) await req('POST', `/daily-challenges/${id}/archive`, {}, at).catch(() => {});
 }
