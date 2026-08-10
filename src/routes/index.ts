@@ -10,12 +10,13 @@ import { adminNotificationRouter, studentNotificationRouter } from './notificati
 import { dailyChallengeRouter } from './daily-challenge.routes.js';
 import { mockTestRouter } from './mock-test.routes.js';
 import migrationRouter from './migration.routes.js';
+import { discussionStudentRouter, discussionAdminRouter } from './discussion.routes.js';
 
 export const apiRouter = Router();
 
 apiRouter.get('/version', (_req, res) => {
   res.json({
-    marker: 'mock-test-v2',
+    marker: 'discussion-v1',
     commit: process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION || null,
   });
 });
@@ -33,3 +34,5 @@ apiRouter.use('/', notesRouter);
 apiRouter.use('/', dailyChallengeRouter);
 apiRouter.use('/admin', dailyChallengeRouter);
 apiRouter.use('/admin', migrationRouter);
+apiRouter.use('/', discussionStudentRouter);
+apiRouter.use('/', discussionAdminRouter);

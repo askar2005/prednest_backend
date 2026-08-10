@@ -27,6 +27,7 @@ model User {
   streak            UserStreak?
   progress          Progress?
   results           Result[]
+  discussionComments DiscussionComment[]
 }
 
 model Admin {
@@ -47,6 +48,7 @@ model Admin {
   lastPasswordChangeAt DateTime?
   profileImage         String?
   profileImagePublicId String?
+  discussionComments   DiscussionComment[]
 }
 
 model PreparationCategory {
@@ -132,6 +134,7 @@ model Topic {
   preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
   subject               Subject?            @relation(fields: [subjectId], references: [id])
   videos                Video[]
+  discussionThread      DiscussionThread?
 
   @@unique([preparationCategoryId, name])
 }
@@ -655,6 +658,35 @@ enum ContentStatus {
 enum Visibility {
   PUBLIC
   PRIVATE
+}
+
+model DiscussionThread {
+  id        String              @id @default(uuid())
+  topicId   String              @unique
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  topic     Topic               @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  comments  DiscussionComment[]
+}
+
+model DiscussionComment {
+  id        String             @id @default(uuid())
+  threadId  String
+  userId    String?
+  adminId   String?
+  parentId  String?
+  content   String
+  isEdited  Boolean            @default(false)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  thread    DiscussionThread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user      User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  admin     Admin?             @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  parent    DiscussionComment? @relation("DiscussionReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   DiscussionComment[] @relation("DiscussionReplies")
+
+  @@index([threadId, createdAt])
+  @@index([parentId])
 }
 
 
