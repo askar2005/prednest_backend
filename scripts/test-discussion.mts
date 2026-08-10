@@ -121,10 +121,9 @@ async function main() {
 
   // 16. Pagination: 25 comments -> 20 + 5
   const bulk = await prisma.discussionThread.findFirst({ where: { topic: { name: 'DS-TEST-Alpha' } } });
-  const created: string[] = [];
+  const baseTime = new Date(ac1.data.createdAt).getTime();
   for (let i = 0; i < 25; i++) {
-    const c = await prisma.discussionComment.create({ data: { threadId: bulk!.id, userId: ua.userId, content: `bulk ${i}` } });
-    created.push(c.id);
+    await prisma.discussionComment.create({ data: { threadId: bulk!.id, userId: ua.userId, content: `bulk ${i}`, createdAt: new Date(baseTime + i + 1) } });
   }
   const p1 = await req('GET', `/student/topics/${t1}/discussion?page=1&limit=20`, undefined, ua.token);
   const p2 = await req('GET', `/student/topics/${t1}/discussion?page=2&limit=20`, undefined, ua.token);
