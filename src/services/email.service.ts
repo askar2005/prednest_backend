@@ -38,7 +38,7 @@ export async function sendEmail({ to, subject, htmlContent }: SendEmailParams) {
 }
 
 function otpTemplate(name: string, otp: string, purpose: 'verification' | 'reset') {
-  const title = purpose === 'verification' ? 'Verify your PrepNest Account' : 'Reset Your PrepNest Password';
+  const title = purpose === 'verification' ? 'Verify your Kathir Academy Account' : 'Reset Your Kathir Academy Password';
   const message = purpose === 'verification'
     ? 'Your verification code is:'
     : 'Your password reset code is:';
@@ -66,7 +66,7 @@ function otpTemplate(name: string, otp: string, purpose: 'verification' | 'reset
           <p style="font-size: 13px; color: #94a3b8; margin: 0;">This OTP expires in <strong>5 minutes</strong>. If you did not request this, please ignore this email.</p>
         </td></tr>
         <tr><td style="border-top: 1px solid #e2e8f0; padding-top: 24px;">
-          <p style="font-size: 13px; color: #94a3b8; margin: 0;">Regards,<br><strong style="color: #0f172a;">PrepNest Team</strong></p>
+          <p style="font-size: 13px; color: #94a3b8; margin: 0;">Regards,<br><strong style="color: #0f172a;">Kathir Academy Team</strong></p>
         </td></tr>
       </table>
     </td></tr>
@@ -78,7 +78,7 @@ function otpTemplate(name: string, otp: string, purpose: 'verification' | 'reset
 export function sendVerificationOtp(name: string, email: string, otp: string) {
   return sendEmail({
     to: { email, name },
-    subject: 'Verify your PrepNest Account',
+        subject: 'Verify your Kathir Academy Account',
     htmlContent: otpTemplate(name, otp, 'verification'),
   });
 }
@@ -86,7 +86,7 @@ export function sendVerificationOtp(name: string, email: string, otp: string) {
 export function sendResetOtp(name: string, email: string, otp: string) {
   return sendEmail({
     to: { email, name },
-    subject: 'Reset Your PrepNest Password',
+        subject: 'Reset Your Kathir Academy Password',
     htmlContent: otpTemplate(name, otp, 'reset'),
   });
 }

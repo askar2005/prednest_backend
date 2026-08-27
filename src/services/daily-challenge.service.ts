@@ -3,23 +3,62 @@ import { AppError } from '../utils/app-error.js';
 import { Prisma } from '@prisma/client';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const CHALLENGE_TZ_OFFSET_MINUTES = 330;
+const CHALLENGE_TZ_OFFSET_MS = CHALLENGE_TZ_OFFSET_MINUTES * 60 * 1000;
 
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+function toChallengeDateParts(date: Date): { year: number; month: number; day: number } {
+  const shifted = new Date(date.getTime() + CHALLENGE_TZ_OFFSET_MS);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth(),
+    day: shifted.getUTCDate(),
+  };
 }
 
-function addDays(d: Date, n: number): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+function startOfChallengeDay(d: Date): Date {
+  const { year, month, day } = toChallengeDateParts(d);
+  return new Date(Date.UTC(year, month, day) - CHALLENGE_TZ_OFFSET_MS);
 }
 
-function diffDays(a: Date, b: Date): number {
-  const aNorm = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
-  const bNorm = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+function addChallengeDays(d: Date, n: number): Date {
+  const parts = toChallengeDateParts(d);
+  return new Date(Date.UTC(parts.year, parts.month, parts.day + n) - CHALLENGE_TZ_OFFSET_MS);
+}
+
+function diffChallengeDays(a: Date, b: Date): number {
+  const aParts = toChallengeDateParts(a);
+  const bParts = toChallengeDateParts(b);
+  const aNorm = Date.UTC(aParts.year, aParts.month, aParts.day);
+  const bNorm = Date.UTC(bParts.year, bParts.month, bParts.day);
   return Math.round((aNorm - bNorm) / DAY_MS);
 }
 
 function dayOf(d: Date | null | undefined): Date {
-  return startOfDay(d ?? new Date());
+  return startOfChallengeDay(d ?? new Date());
+}
+
+function challengeNow(): Date {
+  return new Date();
+}
+
+function isSameChallengeDay(a: Date, b: Date): boolean {
+  return diffChallengeDays(a, b) === 0;
+}
+
+function isYesterdayChallengeDay(today: Date, yesterdayCandidate: Date): boolean {
+  return diffChallengeDays(today, yesterdayCandidate) === 1;
+}
+
+function normalizeStreakForDay(streak: { currentStreak: number; longestStreak: number; lastCompletedDate: Date | null }, today: Date) {
+  const last = streak.lastCompletedDate ? dayOf(streak.lastCompletedDate) : null;
+  if (!last) return streak;
+  const diff = diffChallengeDays(today, last);
+  if (diff <= 1) return streak;
+  if (streak.currentStreak === 0) return streak;
+  return {
+    ...streak,
+    currentStreak: 0,
+  };
 }
 
 let advanceTail: Promise<void> = Promise.resolve();
@@ -116,7 +155,7 @@ export const dailyChallengeService = {
       prisma.dailyChallenge.findFirst({
         where: {
           status: 'PUBLISHED',
-          publishedDate: { gte: startOfDay(new Date()), lt: addDays(startOfDay(new Date()), 1) },
+          publishedDate: { gte: startOfChallengeDay(challengeNow()), lt: addChallengeDays(challengeNow(), 1) },
         },
         orderBy: { publishedAt: 'desc' },
       }),
@@ -136,8 +175,8 @@ export const dailyChallengeService = {
    * Archives LEFT-OVER published challenges, then publishes the next QUEUE item.
    */
   async ensureDayPublished(target: Date = new Date()): Promise<{ published: boolean; challenge: unknown; queue: number }> {
-    const dayStart = startOfDay(target);
-    const dayEnd = addDays(dayStart, 1);
+    const dayStart = startOfChallengeDay(target);
+    const dayEnd = addChallengeDays(target, 1);
 
     return withAdvanceLock(async () => {
       const existing = await prisma.dailyChallenge.findFirst({
@@ -174,14 +213,15 @@ export const dailyChallengeService = {
   },
 
   async runScheduler() {
-    return this.ensureDayPublished(new Date());
+    return this.ensureDayPublished(challengeNow());
   },
 
   async getToday(userId: string) {
-    const todayStart = startOfDay(new Date());
-    const todayEnd = addDays(todayStart, 1);
+    const today = challengeNow();
+    const todayStart = startOfChallengeDay(today);
+    const todayEnd = addChallengeDays(today, 1);
 
-    await this.ensureDayPublished(new Date());
+    await this.ensureDayPublished(today);
 
     const challenge = await prisma.dailyChallenge.findFirst({
       where: { status: 'PUBLISHED', publishedDate: { gte: todayStart, lt: todayEnd } },
@@ -201,86 +241,103 @@ export const dailyChallengeService = {
     if (challenge.status !== 'PUBLISHED') throw new AppError('Challenge is not published yet', 400);
 
     const pubDay = dayOf(challenge.publishedDate ?? challenge.publishedAt);
-    const today = startOfDay(new Date());
+    const today = startOfChallengeDay(challengeNow());
     if (pubDay > today) throw new AppError('This challenge is not available yet', 400);
 
-    const existing = await prisma.userDailyChallenge.findUnique({
-      where: { userId_challengeId: { userId, challengeId } },
-    });
-    if (existing) throw new AppError('You have already attempted this challenge', 400);
-
     const isCorrect = selectedAnswer === challenge.correctAnswer;
+    const completedDay = dayOf(challenge.publishedDate ?? challenge.publishedAt);
 
-    return prisma.$transaction(async (tx) => {
-      const attempt = await tx.userDailyChallenge.create({
-        data: { userId, challengeId, selectedAnswer, isCorrect },
-      });
-      await this.updateStreak(userId, isCorrect, dayOf(new Date()), tx);
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const existing = await tx.userDailyChallenge.findUnique({
+          where: { userId_challengeId: { userId, challengeId } },
+        });
+        if (existing) {
+          const streak = await this.getStreak(userId, tx);
+          return { attempt: existing, correctAnswer: challenge.correctAnswer, explanation: challenge.explanation, streak };
+        }
 
-      return { attempt, correctAnswer: challenge.correctAnswer, explanation: challenge.explanation };
-    });
+        const attempt = await tx.userDailyChallenge.create({
+          data: { userId, challengeId, selectedAnswer, isCorrect },
+        });
+
+        const streak = await this.updateStreak(userId, isCorrect, completedDay, tx);
+
+        return { attempt, correctAnswer: challenge.correctAnswer, explanation: challenge.explanation, streak };
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+      return result;
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const attempt = await prisma.userDailyChallenge.findUnique({
+          where: { userId_challengeId: { userId, challengeId } },
+        });
+        const streak = await this.getStreak(userId);
+        return { attempt, correctAnswer: challenge.correctAnswer, explanation: challenge.explanation, streak };
+      }
+      throw error;
+    }
   },
 
   async updateStreak(userId: string, isCorrect: boolean, completedDay: Date, tx: Prisma.TransactionClient = prisma) {
-    const streak = await tx.userStreak.findUnique({ where: { userId } });
+    const existing = await tx.userStreak.findUnique({ where: { userId } });
 
+    const base = existing ?? (await tx.userStreak.create({
+      data: { userId, currentStreak: 0, longestStreak: 0, lastCompletedDate: null },
+    }));
+
+    const normalized = normalizeStreakForDay(base, completedDay);
+    const lastCompleted = normalized.lastCompletedDate ? dayOf(normalized.lastCompletedDate) : null;
+    const lastDiff = lastCompleted ? diffChallengeDays(completedDay, lastCompleted) : null;
+
+    let currentStreak = normalized.currentStreak;
+    let longestStreak = normalized.longestStreak;
+
+    if (lastDiff === 0) {
+      return normalized;
+    }
+
+    if (isCorrect) {
+      if (lastDiff === 1 && currentStreak > 0) {
+        currentStreak += 1;
+      } else {
+        currentStreak = 1;
+      }
+      longestStreak = Math.max(longestStreak, currentStreak);
+    } else {
+      currentStreak = Math.max(0, currentStreak - 1);
+    }
+
+    const updated = await tx.userStreak.update({
+      where: { userId },
+      data: {
+        currentStreak,
+        longestStreak,
+        lastCompletedDate: isCorrect ? completedDay : normalized.lastCompletedDate,
+      },
+    });
+
+    return updated;
+  },
+
+  async getStreak(userId: string, tx: Prisma.TransactionClient = prisma) {
+    let streak = await tx.userStreak.findUnique({ where: { userId } });
     if (!streak) {
-      return tx.userStreak.create({
-        data: {
-          userId,
-          currentStreak: isCorrect ? 1 : 0,
-          longestStreak: isCorrect ? 1 : 0,
-          lastCompletedDate: completedDay,
-        },
+      streak = await tx.userStreak.create({
+        data: { userId, currentStreak: 0, longestStreak: 0, lastCompletedDate: null },
       });
     }
 
-    const last = streak.lastCompletedDate ? dayOf(streak.lastCompletedDate) : null;
-    if (last) {
-      const diff = diffDays(completedDay, last);
-      if (diff === 0) {
-        if (isCorrect && streak.currentStreak === 0) {
-          return tx.userStreak.update({
-            where: { userId },
-            data: {
-              currentStreak: 1,
-              longestStreak: Math.max(1, streak.longestStreak),
-              lastCompletedDate: completedDay,
-            },
-          });
-        }
-        return streak;
-      }
-      if (diff === 1) {
-        const current = isCorrect ? streak.currentStreak + 1 : 0;
-        return tx.userStreak.update({
-          where: { userId },
-          data: {
-            currentStreak: current,
-            longestStreak: Math.max(current, streak.longestStreak),
-            lastCompletedDate: completedDay,
-          },
-        });
-      }
-      if (diff < 1) return streak;
-    }
-
-    const current = isCorrect ? 1 : 0;
-    return tx.userStreak.update({
-      where: { userId },
-      data: {
-        currentStreak: current,
-        longestStreak: Math.max(current, streak.longestStreak),
-        lastCompletedDate: completedDay,
-      },
-    });
-  },
-
-  async getStreak(userId: string) {
-    let streak = await prisma.userStreak.findUnique({ where: { userId } });
-    if (!streak) {
-      streak = await prisma.userStreak.create({
-        data: { userId, currentStreak: 0, longestStreak: 0 },
+    const today = startOfChallengeDay(challengeNow());
+    const normalized = normalizeStreakForDay(streak, today);
+    if (
+      normalized.currentStreak !== streak.currentStreak ||
+      normalized.longestStreak !== streak.longestStreak ||
+      normalized.lastCompletedDate?.getTime() !== streak.lastCompletedDate?.getTime()
+    ) {
+      streak = await tx.userStreak.update({
+        where: { userId },
+        data: { currentStreak: normalized.currentStreak },
       });
     }
     return streak;

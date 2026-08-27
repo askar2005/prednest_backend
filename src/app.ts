@@ -45,9 +45,9 @@ app.get('/', (_req, res) => {
   res.json({
     success: true,
     status: 'online',
-    service: 'PrepNest Backend',
+    service: 'Kathir Academy Backend',
     version: '1.0.0',
-    message: 'PrepNest Backend API is running successfully.',
+    message: 'Kathir Academy Backend API is running successfully.',
     timestamp: new Date().toISOString(),
   });
 });
