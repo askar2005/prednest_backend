@@ -21,6 +21,19 @@ async function markRead(userId: string, notificationId: string) {
   });
 }
 
+function publishedVisibilityWhere(now: Date) {
+  return {
+    status: 'PUBLISHED',
+    OR: [
+      { publishDate: null },
+      { publishDate: { lte: now } },
+    ],
+    AND: [
+      { OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] },
+    ],
+  } as any;
+}
+
 function normalizeNotificationPayload(input: Record<string, any>) {
   const normalized: Record<string, any> = { ...input };
   for (const key of ['summary', 'description', 'thumbnailUrl', 'bannerUrl', 'attachmentUrl', 'externalLink', 'targetAudience', 'createdBy', 'searchText']) {
@@ -112,7 +125,7 @@ export const notificationController = {
       const skip = (Math.max(1, parseInt(page)) - 1) * Math.min(50, Math.max(1, parseInt(limit) || 20));
       const take = Math.min(50, Math.max(1, parseInt(limit) || 20));
       const now = new Date();
-      const where: any = { status: 'PUBLISHED', OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] };
+      const where: any = publishedVisibilityWhere(now);
       if (category) where.category = category;
 
       const [items, total] = await Promise.all([
@@ -134,8 +147,9 @@ export const notificationController = {
 
   studentGet: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const notification = await prisma.notification.findUnique({ where: { id: pid(req) } });
-      if (!notification || notification.status !== 'PUBLISHED') throw new AppError('Notification not found', 404);
+      const now = new Date();
+      const notification = await prisma.notification.findFirst({ where: { id: pid(req), ...publishedVisibilityWhere(now) } });
+      if (!notification) throw new AppError('Notification not found', 404);
       await prisma.notification.update({ where: { id: pid(req) }, data: { views: { increment: 1 } } });
       await markRead(req.user!.id, notification.id);
       res.json({ ...notification, views: notification.views + 1, isRead: true });
@@ -146,7 +160,7 @@ export const notificationController = {
     try {
       const now = new Date();
       const items = await prisma.notification.findMany({
-        where: { status: 'PUBLISHED', OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] },
+        where: publishedVisibilityWhere(now),
         orderBy: [{ isPinned: 'desc' }, { publishDate: 'desc' }],
         take: 5,
         select: { id: true, title: true, summary: true, category: true, priority: true, thumbnailUrl: true, publishDate: true, isPinned: true },
@@ -163,7 +177,7 @@ export const notificationController = {
     try {
       const now = new Date();
       const published = await prisma.notification.findMany({
-        where: { status: 'PUBLISHED', OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] },
+        where: publishedVisibilityWhere(now),
         select: { id: true },
       });
       const readCount = published.length
@@ -178,8 +192,9 @@ export const notificationController = {
 
   studentMarkRead: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const notification = await prisma.notification.findUnique({ where: { id: pid(req) } });
-      if (!notification || notification.status !== 'PUBLISHED') throw new AppError('Notification not found', 404);
+      const now = new Date();
+      const notification = await prisma.notification.findFirst({ where: { id: pid(req), ...publishedVisibilityWhere(now) } });
+      if (!notification) throw new AppError('Notification not found', 404);
       await markRead(req.user!.id, notification.id);
       res.json({ ok: true });
     } catch (e) { next(e); }
@@ -189,7 +204,7 @@ export const notificationController = {
     try {
       const now = new Date();
       const notifications = await prisma.notification.findMany({
-        where: { status: 'PUBLISHED', OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] },
+        where: publishedVisibilityWhere(now),
         select: { id: true },
       });
       if (notifications.length === 0) {
