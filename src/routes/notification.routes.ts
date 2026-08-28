@@ -22,4 +22,6 @@ studentNotificationRouter.use(requireUser);
 studentNotificationRouter.get('/', notificationController.studentList);
 studentNotificationRouter.get('/recent', notificationController.studentRecent);
 studentNotificationRouter.get('/unread-count', notificationController.studentUnreadCount);
+studentNotificationRouter.post('/mark-all-read', notificationController.studentMarkAllRead);
 studentNotificationRouter.get('/:id', notificationController.studentGet);
+studentNotificationRouter.post('/:id/read', notificationController.studentMarkRead);

@@ -2,7 +2,24 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
 
-function pid(req: Request) { return req.params.id as string; }
+function pid(req: Request) { return (req.params.notificationId || req.params.id) as string; }
+
+async function getReadIds(userId: string, notificationIds: string[]) {
+  if (!notificationIds.length) return new Set<string>();
+  const reads = await prisma.notificationRead.findMany({
+    where: { userId, notificationId: { in: notificationIds } },
+    select: { notificationId: true },
+  });
+  return new Set(reads.map((r) => r.notificationId));
+}
+
+async function markRead(userId: string, notificationId: string) {
+  await prisma.notificationRead.upsert({
+    where: { userId_notificationId: { userId, notificationId } },
+    create: { userId, notificationId },
+    update: { readAt: new Date() },
+  });
+}
 
 export const notificationController = {
   // ── Admin ──
@@ -91,7 +108,13 @@ export const notificationController = {
         }),
         prisma.notification.count({ where }),
       ]);
-      res.json({ items, total, page: parseInt(page), limit: take });
+      const readIds = await getReadIds(req.user!.id, items.map((item) => item.id));
+      res.json({
+        items: items.map((item) => ({ ...item, isRead: readIds.has(item.id) })),
+        total,
+        page: parseInt(page),
+        limit: take,
+      });
     } catch (e) { next(e); }
   },
 
@@ -99,8 +122,15 @@ export const notificationController = {
     try {
       const notification = await prisma.notification.findUnique({ where: { id: pid(req) } });
       if (!notification || notification.status !== 'PUBLISHED') throw new AppError('Notification not found', 404);
+      const existingRead = await prisma.notificationRead.findUnique({
+        where: { userId_notificationId: { userId: req.user!.id, notificationId: notification.id } },
+        select: { id: true },
+      });
       await prisma.notification.update({ where: { id: pid(req) }, data: { views: { increment: 1 } } });
-      res.json({ ...notification, views: notification.views + 1 });
+      if (!existingRead) {
+        await markRead(req.user!.id, notification.id);
+      }
+        res.json({ ...notification, views: notification.views + 1, isRead: true });
     } catch (e) { next(e); }
   },
 
@@ -113,17 +143,60 @@ export const notificationController = {
         take: 5,
         select: { id: true, title: true, summary: true, category: true, priority: true, thumbnailUrl: true, publishDate: true, isPinned: true },
       });
-      res.json({ items, total: items.length });
+      const readIds = await getReadIds(req.user!.id, items.map((item) => item.id));
+      res.json({
+        items: items.map((item) => ({ ...item, isRead: readIds.has(item.id) })),
+        total: items.length,
+      });
     } catch (e) { next(e); }
   },
 
   studentUnreadCount: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const now = new Date();
-      const count = await prisma.notification.count({
+      const published = await prisma.notification.findMany({
         where: { status: 'PUBLISHED', OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] },
+        select: { id: true },
       });
+      const readCount = published.length
+        ? await prisma.notificationRead.count({
+            where: { userId: req.user!.id, notificationId: { in: published.map((n) => n.id) } },
+          })
+        : 0;
+      const count = published.length - readCount;
       res.json({ count });
+    } catch (e) { next(e); }
+  },
+
+  studentMarkRead: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const notification = await prisma.notification.findUnique({ where: { id: pid(req) } });
+      if (!notification || notification.status !== 'PUBLISHED') throw new AppError('Notification not found', 404);
+      await markRead(req.user!.id, notification.id);
+      res.json({ ok: true });
+    } catch (e) { next(e); }
+  },
+
+  studentMarkAllRead: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const now = new Date();
+      const notifications = await prisma.notification.findMany({
+        where: { status: 'PUBLISHED', OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] },
+        select: { id: true },
+      });
+      if (notifications.length === 0) {
+        return res.json({ ok: true, marked: 0 });
+      }
+      await prisma.$transaction(
+        notifications.map((notification) =>
+          prisma.notificationRead.upsert({
+            where: { userId_notificationId: { userId: req.user!.id, notificationId: notification.id } },
+            create: { userId: req.user!.id, notificationId: notification.id },
+            update: { readAt: new Date() },
+          })
+        )
+      );
+      res.json({ ok: true, marked: notifications.length });
     } catch (e) { next(e); }
   },
 };

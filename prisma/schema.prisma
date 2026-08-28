@@ -28,6 +28,7 @@ model User {
   progress          Progress?
   results           Result[]
   discussionComments DiscussionComment[]
+  notificationReads  NotificationRead[]
 }
 
 model Admin {
@@ -559,9 +560,25 @@ model Notification {
   updatedAt             DateTime                 @updatedAt
   attachments           AttachmentNotification[]
   bookmarks             Bookmark[]
+  reads                 NotificationRead[]
   preparationCategory   PreparationCategory?     @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
   subject               Subject?                 @relation(fields: [subjectId], references: [id])
   topic                 Topic?                   @relation(fields: [topicId], references: [id])
+}
+
+model NotificationRead {
+  id             String       @id @default(uuid())
+  userId         String
+  notificationId String
+  readAt         DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, notificationId])
+  @@index([userId, readAt])
+  @@index([notificationId])
 }
 
 model AttachmentNotification {
