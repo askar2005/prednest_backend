@@ -27,6 +27,12 @@ const isAllowedOrigin = (origin: string | undefined) => {
   }
 };
 console.log('[CORS] Allowed origins:', corsOrigins);
+try {
+  const dbUrl = new URL(env.DATABASE_URL);
+  console.log(`[DB] Host=${dbUrl.hostname} Database=${dbUrl.pathname.replace(/^\//, '')}`);
+} catch {
+  console.log('[DB] Unable to parse DATABASE_URL for safe fingerprint logging');
+}
 app.use(cors({
   origin: (origin, cb) => {
     const allow = isAllowedOrigin(origin as string | undefined);

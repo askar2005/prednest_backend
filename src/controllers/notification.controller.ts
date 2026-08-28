@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
+import { logger } from '../utils/logger.js';
 
 function pid(req: Request) { return (req.params.notificationId || req.params.id) as string; }
 
@@ -77,6 +78,7 @@ export const notificationController = {
     try {
       const data = normalizeNotificationPayload(req.body) as any;
       const notification = await prisma.notification.create({ data });
+      logger.info(`Notification created id=${notification.id} status=${notification.status} publishDate=${notification.publishDate?.toISOString() ?? 'null'} expiryDate=${notification.expiryDate?.toISOString() ?? 'null'}`);
       res.status(201).json(notification);
     } catch (e) { next(e); }
   },
@@ -87,6 +89,7 @@ export const notificationController = {
         where: { id: pid(req) },
         data: normalizeNotificationPayload(req.body) as any,
       });
+      logger.info(`Notification updated id=${notification.id} status=${notification.status} publishDate=${notification.publishDate?.toISOString() ?? 'null'} expiryDate=${notification.expiryDate?.toISOString() ?? 'null'}`);
       res.json(notification);
     } catch (e) { next(e); }
   },
@@ -104,6 +107,7 @@ export const notificationController = {
         where: { id: pid(req) },
         data: { status: 'PUBLISHED', publishDate: new Date() },
       });
+      logger.info(`Notification published id=${notification.id} publishDate=${notification.publishDate?.toISOString() ?? 'null'}`);
       res.json(notification);
     } catch (e) { next(e); }
   },
@@ -135,6 +139,7 @@ export const notificationController = {
         }),
         prisma.notification.count({ where }),
       ]);
+      logger.info(`Student notification list user=${req.user?.id ?? 'anonymous'} count=${items.length} total=${total} page=${page} category=${category || 'all'} queryWhere=${JSON.stringify({ category: category || null })}`);
       const readIds = await getReadIds(req.user!.id, items.map((item) => item.id));
       res.json({
         items: items.map((item) => ({ ...item, isRead: readIds.has(item.id) })),
@@ -152,6 +157,7 @@ export const notificationController = {
       if (!notification) throw new AppError('Notification not found', 404);
       await prisma.notification.update({ where: { id: pid(req) }, data: { views: { increment: 1 } } });
       await markRead(req.user!.id, notification.id);
+      logger.info(`Student opened notification user=${req.user!.id} notification=${notification.id}`);
       res.json({ ...notification, views: notification.views + 1, isRead: true });
     } catch (e) { next(e); }
   },
@@ -166,6 +172,7 @@ export const notificationController = {
         select: { id: true, title: true, summary: true, category: true, priority: true, thumbnailUrl: true, publishDate: true, isPinned: true },
       });
       const readIds = await getReadIds(req.user!.id, items.map((item) => item.id));
+      logger.info(`Student recent notifications user=${req.user?.id ?? 'anonymous'} count=${items.length}`);
       res.json({
         items: items.map((item) => ({ ...item, isRead: readIds.has(item.id) })),
         total: items.length,
@@ -186,6 +193,7 @@ export const notificationController = {
           })
         : 0;
       const count = published.length - readCount;
+      logger.info(`Student unread count user=${req.user?.id ?? 'anonymous'} published=${published.length} read=${readCount} count=${count}`);
       res.json({ count });
     } catch (e) { next(e); }
   },
@@ -196,6 +204,7 @@ export const notificationController = {
       const notification = await prisma.notification.findFirst({ where: { id: pid(req), ...publishedVisibilityWhere(now) } });
       if (!notification) throw new AppError('Notification not found', 404);
       await markRead(req.user!.id, notification.id);
+      logger.info(`Student marked read user=${req.user!.id} notification=${notification.id}`);
       res.json({ ok: true });
     } catch (e) { next(e); }
   },
@@ -219,6 +228,7 @@ export const notificationController = {
           })
         )
       );
+      logger.info(`Student mark-all-read user=${req.user!.id} marked=${notifications.length}`);
       res.json({ ok: true, marked: notifications.length });
     } catch (e) { next(e); }
   },
