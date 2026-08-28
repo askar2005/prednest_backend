@@ -8,7 +8,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16),
   JWT_EXPIRES_IN: z.string().default('7d'),
   PORT: z.coerce.number().default(4000),
-  CLIENT_ORIGIN: z.string().default('http://localhost:5173,http://localhost:5174,https://prepnest-admin.vercel.app,https://prepnest-user.vercel.app'),
+  CLIENT_ORIGIN: z.string().default('http://localhost:5173,http://localhost:5174,https://prepnest-admin.vercel.app,https://prepnest-user.vercel.app,https://prepnnest-admin.vercel.app,https://prepnnest-user.vercel.app,https://kathir-academy-admin.vercel.app,https://kathir-academy-user.vercel.app'),
   BREVO_API_KEY: z.string().min(1),
   BREVO_SENDER_EMAIL: z.string().email().default('noreply@prepnest.com'),
   BREVO_SENDER_NAME: z.string().default('PrepNest Team'),
