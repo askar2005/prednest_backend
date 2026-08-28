@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const emptyToNull = (value: unknown) => (value === '' ? null : value);
+const nullableText = z.preprocess(emptyToNull, z.string().trim().min(1).nullable().optional());
+const nullableUrl = z.preprocess(emptyToNull, z.string().url().nullable().optional());
+const nullableDate = z.preprocess(emptyToNull, z.coerce.date().nullable().optional());
+
 export const preparationCategorySchema = z.object({
   name: z.string().min(2),
   slug: z.string().min(2),
@@ -90,22 +95,22 @@ export const notificationSchema = z.object({
   subjectId: z.string().uuid().optional().nullable(),
   topicId: z.string().uuid().optional().nullable(),
   title: z.string().min(2),
-  summary: z.string().optional().nullable(),
-  description: z.string().optional().nullable(),
+  summary: nullableText,
+  description: nullableText,
   category: z.enum(['PLACEMENT_DRIVES', 'INTERNSHIPS', 'HACKATHONS', 'COMPANY_HIRING', 'EXAM_UPDATES', 'SCHOLARSHIPS', 'COLLEGE_ANNOUNCEMENTS', 'WORKSHOP', 'GENERAL']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
-  thumbnailUrl: z.string().optional().nullable(),
-  bannerUrl: z.string().optional().nullable(),
-  attachmentUrl: z.string().optional().nullable(),
-  externalLink: z.string().optional().nullable(),
-  publishDate: z.coerce.date().optional().nullable(),
-  expiryDate: z.coerce.date().optional().nullable(),
+  thumbnailUrl: nullableUrl,
+  bannerUrl: nullableUrl,
+  attachmentUrl: nullableUrl,
+  externalLink: nullableUrl,
+  publishDate: nullableDate,
+  expiryDate: nullableDate,
   isPinned: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
   status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
-  targetAudience: z.string().optional().nullable(),
-  createdBy: z.string().optional().nullable(),
-  searchText: z.string().optional().nullable(),
+  targetAudience: nullableText,
+  createdBy: nullableText,
+  searchText: nullableText,
 });
 
 export const dailyChallengeSchema = z.object({

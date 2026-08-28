@@ -21,6 +21,17 @@ async function markRead(userId: string, notificationId: string) {
   });
 }
 
+function normalizeNotificationPayload(input: Record<string, any>) {
+  const normalized: Record<string, any> = { ...input };
+  for (const key of ['summary', 'description', 'thumbnailUrl', 'bannerUrl', 'attachmentUrl', 'externalLink', 'targetAudience', 'createdBy', 'searchText']) {
+    if (normalized[key] === '') normalized[key] = null;
+  }
+  for (const key of ['publishDate', 'expiryDate']) {
+    if (normalized[key] === '') normalized[key] = null;
+  }
+  return normalized;
+}
+
 export const notificationController = {
   // ── Admin ──
   adminList: async (req: Request, res: Response, next: NextFunction) => {
@@ -51,7 +62,7 @@ export const notificationController = {
 
   adminCreate: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = { ...req.body };
+      const data = normalizeNotificationPayload(req.body) as any;
       const notification = await prisma.notification.create({ data });
       res.status(201).json(notification);
     } catch (e) { next(e); }
@@ -59,7 +70,10 @@ export const notificationController = {
 
   adminUpdate: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const notification = await prisma.notification.update({ where: { id: pid(req) }, data: req.body });
+      const notification = await prisma.notification.update({
+        where: { id: pid(req) },
+        data: normalizeNotificationPayload(req.body) as any,
+      });
       res.json(notification);
     } catch (e) { next(e); }
   },
@@ -122,15 +136,9 @@ export const notificationController = {
     try {
       const notification = await prisma.notification.findUnique({ where: { id: pid(req) } });
       if (!notification || notification.status !== 'PUBLISHED') throw new AppError('Notification not found', 404);
-      const existingRead = await prisma.notificationRead.findUnique({
-        where: { userId_notificationId: { userId: req.user!.id, notificationId: notification.id } },
-        select: { id: true },
-      });
       await prisma.notification.update({ where: { id: pid(req) }, data: { views: { increment: 1 } } });
-      if (!existingRead) {
-        await markRead(req.user!.id, notification.id);
-      }
-        res.json({ ...notification, views: notification.views + 1, isRead: true });
+      await markRead(req.user!.id, notification.id);
+      res.json({ ...notification, views: notification.views + 1, isRead: true });
     } catch (e) { next(e); }
   },
 
