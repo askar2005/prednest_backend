@@ -15,11 +15,21 @@ app.set('trust proxy', 1);
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
-const corsOrigins = env.CLIENT_ORIGIN.split(',').map((o) => o.trim());
+const corsOrigins = env.CLIENT_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
+const isAllowedOrigin = (origin: string | undefined) => {
+  if (!origin) return true;
+  if (corsOrigins.includes(origin)) return true;
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'https:' && url.hostname.endsWith('.vercel.app');
+  } catch {
+    return false;
+  }
+};
 console.log('[CORS] Allowed origins:', corsOrigins);
 app.use(cors({
   origin: (origin, cb) => {
-    const allow = !origin || corsOrigins.includes(origin as string);
+    const allow = isAllowedOrigin(origin as string | undefined);
     cb(null, allow);
   },
   credentials: true,
