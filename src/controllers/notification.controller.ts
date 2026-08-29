@@ -23,7 +23,7 @@ async function markRead(userId: string, notificationId: string) {
 }
 
 function publishedVisibilityWhere(now: Date) {
-  return {
+  const where = {
     status: 'PUBLISHED',
     OR: [
       { publishDate: null },
@@ -33,6 +33,8 @@ function publishedVisibilityWhere(now: Date) {
       { OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] },
     ],
   } as any;
+  logger.info(`publishedVisibilityWhere now=${now.toISOString()} where=${JSON.stringify(where)}`);
+  return where;
 }
 
 function normalizeNotificationPayload(input: Record<string, any>) {
@@ -139,7 +141,7 @@ export const notificationController = {
         }),
         prisma.notification.count({ where }),
       ]);
-      logger.info(`Student notification list user=${req.user?.id ?? 'anonymous'} count=${items.length} total=${total} page=${page} category=${category || 'all'} queryWhere=${JSON.stringify({ category: category || null })}`);
+      logger.info(`Student notification list user=${req.user?.id ?? 'anonymous'} count=${items.length} total=${total} page=${page} category=${category || 'all'} now=${new Date().toISOString()} where=${JSON.stringify(where)}`);
       const readIds = await getReadIds(req.user!.id, items.map((item) => item.id));
       res.json({
         items: items.map((item) => ({ ...item, isRead: readIds.has(item.id) })),
