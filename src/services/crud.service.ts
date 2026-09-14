@@ -16,7 +16,6 @@ const searchFields: Record<string, string[]> = {
   notification: ['title', 'description', 'searchText'],
   userDailyChallenge: [],
   userStreak: [],
-  bookmark: [],
   progress: [],
   user: ['name', 'email'],
 };

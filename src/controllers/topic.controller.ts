@@ -46,7 +46,7 @@ export const topicController = {
   dashboard: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const topicId = req.params.topicId as string;
-      const [notesCount, pdfs, mcqs, videos, pyqs, mockTests, results, scores, bookmarks, newNotesCount] = await Promise.all([
+      const [notesCount, pdfs, mcqs, videos, pyqs, mockTests, results, scores, newNotesCount] = await Promise.all([
         prisma.studyMaterial.count({ where: { topicId, type: 'NOTE' } }),
         prisma.studyMaterial.count({ where: { topicId, type: 'PDF' } }),
         prisma.mCQQuestion.count({ where: { topicId } }),
@@ -55,7 +55,6 @@ export const topicController = {
         prisma.mockTest.count({ where: { preparationCategory: { topics: { some: { id: topicId } } } } }),
         prisma.result.count({ where: { mockTest: { preparationCategory: { topics: { some: { id: topicId } } } } } }),
         prisma.result.aggregate({ where: { mockTest: { preparationCategory: { topics: { some: { id: topicId } } } } }, _avg: { score: true }, _max: { score: true } }),
-        prisma.bookmark.count({ where: { topicId } }),
         prisma.note.count({ where: { topicId } }),
       ]);
       const recentUploads = await prisma.studyMaterial.findMany({ where: { topicId }, orderBy: { createdAt: 'desc' }, take: 5, select: { title: true, createdAt: true, type: true } });
@@ -68,7 +67,6 @@ export const topicController = {
         highestScore: scores._max.score || 0,
         totalDownloads: 0,
         studentsViewed: 0,
-        bookmarks,
         completionRate: 0,
         recentUploads, recentMcqs, recentVideos,
       });

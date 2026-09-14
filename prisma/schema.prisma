@@ -22,7 +22,6 @@ model User {
   otpExpiry         DateTime?
   resetOtp          String?
   resetOtpExpiry    DateTime?
-  bookmarks         Bookmark[]
   dailyAttempts     UserDailyChallenge[]
   streak            UserStreak?
   progress          Progress?
@@ -123,7 +122,6 @@ model Topic {
   status                ContentStatus       @default(ACTIVE)
   tags                  String?
   thumbnail             String?
-  bookmarks             Bookmark[]
   interviewQuestions    InterviewQuestion[]
   mcqQuestions          MCQQuestion[]
   mockTests             MockTest[]
@@ -171,7 +169,6 @@ model StudyMaterial {
   tagsString            String?
   visibility            Visibility          @default(PUBLIC)
   attachments           Attachment[]
-  bookmarks             Bookmark[]
   files                 File[]
   versions              NoteVersion[]
   preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
@@ -199,7 +196,6 @@ model MCQQuestion {
   featured              Boolean             @default(false)
   status                ContentStatus       @default(ACTIVE)
   tagsText              String?
-  bookmarks             Bookmark[]
   preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
   subject               Subject?            @relation(fields: [subjectId], references: [id])
   topic                 Topic?              @relation(fields: [topicId], references: [id])
@@ -219,7 +215,6 @@ model InterviewQuestion {
   sampleResponse        String?
   subjectId             String?
   tips                  String?
-  bookmarks             Bookmark[]
   preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
   subject               Subject?            @relation(fields: [subjectId], references: [id])
   topic                 Topic?              @relation(fields: [topicId], references: [id])
@@ -245,7 +240,6 @@ model MockTest {
   totalMarks            Int?
   scheduledAt           DateTime?
   topicId               String?
-  bookmarks             Bookmark[]
   preparationCategory   PreparationCategory @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
   subject               Subject?            @relation(fields: [subjectId], references: [id])
   topic                 Topic?              @relation(fields: [topicId], references: [id])
@@ -427,32 +421,6 @@ model Attachment {
   studyMaterial   StudyMaterial @relation(fields: [studyMaterialId], references: [id], onDelete: Cascade)
 }
 
-model Bookmark {
-  id                  String             @id @default(uuid())
-  userId              String
-  createdAt           DateTime           @default(now())
-  interviewQuestionId String?
-  mcqQuestionId       String?
-  mockTestId          String?
-  notificationId      String?
-  studyMaterialId     String?
-  topicId             String?
-  interviewQuestion   InterviewQuestion? @relation(fields: [interviewQuestionId], references: [id], onDelete: Cascade)
-  mcqQuestion         MCQQuestion?       @relation(fields: [mcqQuestionId], references: [id], onDelete: Cascade)
-  mockTest            MockTest?          @relation(fields: [mockTestId], references: [id], onDelete: Cascade)
-  notification        Notification?      @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  studyMaterial       StudyMaterial?     @relation(fields: [studyMaterialId], references: [id], onDelete: Cascade)
-  topic               Topic?             @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, studyMaterialId])
-  @@unique([userId, mcqQuestionId])
-  @@unique([userId, interviewQuestionId])
-  @@unique([userId, notificationId])
-  @@unique([userId, mockTestId])
-  @@unique([userId, topicId])
-}
-
 model Progress {
   id             String   @id @default(uuid())
   userId         String   @unique
@@ -559,7 +527,6 @@ model Notification {
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
   attachments           AttachmentNotification[]
-  bookmarks             Bookmark[]
   reads                 NotificationRead[]
   preparationCategory   PreparationCategory?     @relation(fields: [preparationCategoryId], references: [id], onDelete: Cascade)
   subject               Subject?                 @relation(fields: [subjectId], references: [id])
@@ -706,4 +673,8 @@ model DiscussionComment {
   @@index([parentId])
 }
 
-
+model SystemSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}

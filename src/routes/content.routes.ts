@@ -35,7 +35,6 @@ const resources = [
   ['notifications', 'notification', notificationSchema],
   ['videos', 'video', videoSchema],
   ['previous-year-questions', 'previousYearQuestion', previousYearQuestionSchema],
-  ['bookmarks', 'bookmark', null],
   ['progress', 'progress', null],
 ] as const;
 

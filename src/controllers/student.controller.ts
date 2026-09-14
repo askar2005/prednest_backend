@@ -3,54 +3,6 @@ import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
 
 export const studentController = {
-  getBookmarks: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const items = await prisma.bookmark.findMany({
-        where: { userId: req.user!.id },
-        include: {
-          studyMaterial: { select: { id: true, title: true, type: true, externalUrl: true } },
-          mcqQuestion: { select: { id: true, question: true } },
-          mockTest: { select: { id: true, title: true } },
-          topic: { select: { id: true, name: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-      res.json({ items, total: items.length });
-    } catch (e) { next(e); }
-  },
-
-  toggleBookmark: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { resource, resourceId } = req.body as { resource: string; resourceId: string };
-      if (!resource || !resourceId) throw new AppError('resource and resourceId required', 400);
-
-      const fieldMap: Record<string, string> = {
-        studyMaterial: 'studyMaterialId',
-        mcqQuestion: 'mcqQuestionId',
-        mockTest: 'mockTestId',
-        topic: 'topicId',
-        interviewQuestion: 'interviewQuestionId',
-        notification: 'notificationId',
-      };
-      const field = fieldMap[resource];
-      if (!field) throw new AppError('Invalid resource type', 400);
-
-      const existing = await prisma.bookmark.findFirst({
-        where: { userId: req.user!.id, [field]: resourceId },
-      });
-
-      if (existing) {
-        await prisma.bookmark.delete({ where: { id: existing.id } });
-        return res.json({ bookmarked: false });
-      }
-
-      await prisma.bookmark.create({
-        data: { userId: req.user!.id, [field]: resourceId },
-      });
-      res.json({ bookmarked: true });
-    } catch (e) { next(e); }
-  },
-
   getProgress: async (req: Request, res: Response, next: NextFunction) => {
     try {
       let progress = await prisma.progress.findUnique({ where: { userId: req.user!.id } });

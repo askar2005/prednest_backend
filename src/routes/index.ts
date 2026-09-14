@@ -11,6 +11,7 @@ import { dailyChallengeRouter } from './daily-challenge.routes.js';
 import { mockTestRouter } from './mock-test.routes.js';
 import migrationRouter from './migration.routes.js';
 import { discussionStudentRouter, discussionAdminRouter } from './discussion.routes.js';
+import { privacyPolicyController } from '../controllers/privacy-policy.controller.js';
 
 export const apiRouter = Router();
 
@@ -20,6 +21,8 @@ apiRouter.get('/version', (_req, res) => {
     commit: process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION || null,
   });
 });
+
+apiRouter.get('/privacy-policy', privacyPolicyController.getPrivacyPolicy);
 
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/admin', adminRouter);                     // Admin auth + profile routes

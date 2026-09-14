@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { adminAuthController } from '../controllers/admin-auth.controller.js';
 import { adminSettingsController } from '../controllers/admin-settings.controller.js';
+import { privacyPolicyController } from '../controllers/privacy-policy.controller.js';
 import { requireAdmin } from '../middlewares/require-auth.js';
 import { validateBody } from '../middlewares/validate-body.js';
 import {
@@ -25,6 +26,9 @@ adminRouter.put('/profile', requireAdmin, validateBody(updateProfileSchema), adm
 adminRouter.put('/change-password', requireAdmin, validateBody(changePasswordSchema), adminSettingsController.changePassword);
 adminRouter.get('/system-info', requireAdmin, adminSettingsController.getSystemInfo);
 adminRouter.get('/session', requireAdmin, adminSettingsController.getSession);
+adminRouter.get('/privacy-policy', requireAdmin, privacyPolicyController.getPrivacyPolicy);
+adminRouter.put('/privacy-policy', requireAdmin, privacyPolicyController.updatePrivacyPolicy);
+adminRouter.post('/privacy-policy/reset', requireAdmin, privacyPolicyController.resetToDefault);
 adminRouter.post('/logout-all', requireAdmin, (_req, res) => {
   res.json({ message: 'Logged out from all devices.' });
 });

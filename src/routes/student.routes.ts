@@ -4,8 +4,6 @@ import { studentController } from '../controllers/student.controller.js';
 
 const router = Router();
 
-router.get('/bookmarks', requireUser, studentController.getBookmarks);
-router.post('/bookmarks/toggle', requireUser, studentController.toggleBookmark);
 router.get('/progress', requireUser, studentController.getProgress);
 router.post('/progress/mcq-attempt', requireUser, studentController.submitMcqAttempt);
 
