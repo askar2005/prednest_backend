@@ -21,7 +21,15 @@ const isAllowedOrigin = (origin: string | undefined) => {
   if (corsOrigins.includes(origin)) return true;
   try {
     const url = new URL(origin);
-    return url.protocol === 'https:' && url.hostname.endsWith('.vercel.app');
+    const host = url.hostname;
+    return (
+      (url.protocol === 'https:' || url.protocol === 'http:') &&
+      (host.endsWith('.vercel.app') ||
+       host === 'kathiracademy.in' ||
+       host.endsWith('.kathiracademy.in') ||
+       host === 'localhost' ||
+       host === '127.0.0.1')
+    );
   } catch {
     return false;
   }
