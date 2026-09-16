@@ -15,15 +15,31 @@ app.set('trust proxy', 1);
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
-const corsOrigins = env.CLIENT_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
-const isAllowedOrigin = (origin: string | undefined) => {
+const extraAllowedOrigins = [
+  'https://localhost',
+  'http://localhost',
+  'capacitor://localhost',
+  'https://www.kathiracademy.in',
+  'https://kathiracademy.in',
+  'http://localhost:5173',
+  'http://localhost:5174',
+];
+const corsOrigins = Array.from(
+  new Set([
+    ...env.CLIENT_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean),
+    ...extraAllowedOrigins,
+  ])
+);
+
+const isAllowedOrigin = (origin: string | undefined): boolean => {
   if (!origin) return true;
   if (corsOrigins.includes(origin)) return true;
   try {
     const url = new URL(origin);
     const host = url.hostname;
+    const protocol = url.protocol;
     return (
-      (url.protocol === 'https:' || url.protocol === 'http:') &&
+      (protocol === 'https:' || protocol === 'http:' || protocol === 'capacitor:') &&
       (host.endsWith('.vercel.app') ||
        host === 'kathiracademy.in' ||
        host.endsWith('.kathiracademy.in') ||
@@ -34,6 +50,7 @@ const isAllowedOrigin = (origin: string | undefined) => {
     return false;
   }
 };
+
 console.log('[CORS] Allowed origins:', corsOrigins);
 try {
   const dbUrl = new URL(env.DATABASE_URL);
@@ -41,13 +58,32 @@ try {
 } catch {
   console.log('[DB] Unable to parse DATABASE_URL for safe fingerprint logging');
 }
-app.use(cors({
+
+const corsOptions: cors.CorsOptions = {
   origin: (origin, cb) => {
     const allow = isAllowedOrigin(origin as string | undefined);
-    cb(null, allow);
+    if (allow) {
+      cb(null, true);
+    } else {
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      cb(null, false);
+    }
   },
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers',
+  ],
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
 
 app.use(express.json({ limit: '50mb' }));
 

@@ -11,6 +11,7 @@ const commentLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many comments. Please try again in a minute.' },
+  validate: { keyGeneratorIpFallback: false },
   keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : `ip:${req.ip}`),
 });
 
