@@ -86,7 +86,46 @@ export function sendVerificationOtp(name: string, email: string, otp: string) {
 export function sendResetOtp(name: string, email: string, otp: string) {
   return sendEmail({
     to: { email, name },
-        subject: 'Reset Your Kathir Academy Password',
+    subject: 'Reset Your Kathir Academy Password',
     htmlContent: otpTemplate(name, otp, 'reset'),
   });
 }
+
+export function sendAccountDeletionOtp(name: string, email: string, otp: string) {
+  return sendEmail({
+    to: { email, name },
+    subject: 'Account Deletion Request Code - Kathir Academy',
+    htmlContent: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: 'Inter', Arial, sans-serif; background: #f8fafc; margin: 0; padding: 0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background: #f8fafc; padding: 40px 0;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 40px;">
+        <tr><td align="center" style="padding-bottom: 24px;">
+          <h1 style="font-size: 24px; font-weight: 700; color: #dc2626; margin: 0;">Account Deletion Request</h1>
+        </td></tr>
+        <tr><td style="padding-bottom: 8px;">
+          <p style="font-size: 16px; color: #0f172a; margin: 0;">Hello <strong>${name}</strong>,</p>
+        </td></tr>
+        <tr><td style="padding-bottom: 24px;">
+          <p style="font-size: 15px; color: #475569; margin: 0; line-height: 1.6;">You have requested to permanently delete your Kathir Academy account and all associated personal data. Use the verification code below to confirm this request:</p>
+        </td></tr>
+        <tr><td align="center" style="padding-bottom: 24px;">
+          <div style="display: inline-block; background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 16px 40px; letter-spacing: 12px; font-size: 36px; font-weight: 700; color: #dc2626;">${otp}</div>
+        </td></tr>
+        <tr><td style="padding-bottom: 24px;">
+          <p style="font-size: 13px; color: #94a3b8; margin: 0;">This code expires in <strong>15 minutes</strong>. If you did not request account deletion, please secure your account immediately and ignore this email.</p>
+        </td></tr>
+        <tr><td style="border-top: 1px solid #e2e8f0; padding-top: 24px;">
+          <p style="font-size: 13px; color: #94a3b8; margin: 0;">Regards,<br><strong style="color: #0f172a;">Kathir Academy Team</strong></p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+}
+

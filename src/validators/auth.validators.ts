@@ -69,3 +69,21 @@ export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type VerifyResetOtpInput = z.infer<typeof verifyResetOtpSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1, 'Password is required'),
+});
+
+export const requestWebDeleteAccountSchema = z.object({
+  email: z.string().email('Enter a valid email address'),
+});
+
+export const confirmWebDeleteAccountSchema = z.object({
+  email: z.string().email('Enter a valid email address'),
+  otp: z.string().length(6, 'OTP must be 6 digits'),
+});
+
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
+export type RequestWebDeleteAccountInput = z.infer<typeof requestWebDeleteAccountSchema>;
+export type ConfirmWebDeleteAccountInput = z.infer<typeof confirmWebDeleteAccountSchema>;
+

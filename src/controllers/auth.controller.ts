@@ -49,3 +49,28 @@ export async function changePassword(req: Request, res: Response, next: NextFunc
 export async function logout(_req: Request, res: Response) {
   res.json({ message: 'Logged out successfully.' });
 }
+
+export async function deleteAccount(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await authService.deleteAccount(req.user!.id, req.body.password));
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function requestWebDeleteAccount(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await authService.requestWebDeleteAccount(req.body.email));
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function confirmWebDeleteAccount(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await authService.confirmWebDeleteAccount(req.body.email, req.body.otp));
+  } catch (e) {
+    next(e);
+  }
+}
+

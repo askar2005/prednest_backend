@@ -3,7 +3,7 @@ import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/app-error.js';
 import { signToken } from './token.service.js';
 import { generateOtp, getOtpExpiry, isOtpExpired } from './otp.service.js';
-import { sendVerificationOtp, sendResetOtp } from './email.service.js';
+import { sendVerificationOtp, sendResetOtp, sendAccountDeletionOtp } from './email.service.js';
 
 type SignupInput = { fullName: string; email: string; password: string };
 type LoginInput = { email: string; password: string };
@@ -135,4 +135,81 @@ export const authService = {
     await sendVerificationOtp(user.name, user.email, otp);
     return { message: 'A new OTP has been sent to your email.' };
   },
+
+  async deleteAccount(userId: string, password?: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new AppError('User not found', 404);
+
+    if (password) {
+      const ok = await verifyPassword(password, user.passwordHash);
+      if (!ok) throw new AppError('Current password is incorrect', 400);
+    }
+
+    await deleteUserCascade(user.id);
+    return { message: 'Your account and all associated personal data have been deleted successfully.' };
+  },
+
+  async requestWebDeleteAccount(emailInput: string) {
+    const email = normalizeEmail(emailInput);
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    // Always return consistent success message to prevent account enumeration vulnerabilities
+    if (!user) {
+      return { message: 'If an account with this email exists, a deletion verification code has been sent.' };
+    }
+
+    const otp = generateOtp();
+    const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minute expiry for deletion code
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetOtp: otp, resetOtpExpiry: otpExpiry },
+    });
+
+    try {
+      await sendAccountDeletionOtp(user.name, user.email, otp);
+    } catch (e) {
+      console.error('[Web Account Deletion Email Error]', e);
+    }
+
+    return { message: 'If an account with this email exists, a deletion verification code has been sent.' };
+  },
+
+  async confirmWebDeleteAccount(emailInput: string, otp: string) {
+    const email = normalizeEmail(emailInput);
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      throw new AppError('Invalid or expired verification code', 400);
+    }
+
+    if (!user.resetOtp || !user.resetOtpExpiry) {
+      throw new AppError('No deletion verification code found. Please request a new code.', 400);
+    }
+
+    if (isOtpExpired(user.resetOtpExpiry)) {
+      throw new AppError('Verification code has expired. Please request a new code.', 400);
+    }
+
+    if (user.resetOtp !== otp) {
+      throw new AppError('Invalid verification code', 400);
+    }
+
+    await deleteUserCascade(user.id);
+    return { message: 'Your account and associated personal data have been deleted successfully.' };
+  },
 };
+
+async function deleteUserCascade(userId: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.userDailyChallenge.deleteMany({ where: { userId } });
+    await tx.userStreak.deleteMany({ where: { userId } });
+    await tx.progress.deleteMany({ where: { userId } });
+    await tx.answerRecord.deleteMany({ where: { result: { userId } } });
+    await tx.result.deleteMany({ where: { userId } });
+    await tx.notificationRead.deleteMany({ where: { userId } });
+    await tx.discussionComment.updateMany({ where: { userId }, data: { userId: null } });
+    return tx.user.delete({ where: { id: userId } });
+  });
+}
+
