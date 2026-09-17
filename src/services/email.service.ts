@@ -1,5 +1,5 @@
+import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
-import { AppError } from '../utils/app-error.js';
 
 type SendEmailParams = {
   to: { email: string; name: string };
@@ -8,40 +8,72 @@ type SendEmailParams = {
 };
 
 export async function sendEmail({ to, subject, htmlContent }: SendEmailParams): Promise<boolean> {
-  try {
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': env.BREVO_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: { name: env.BREVO_SENDER_NAME, email: env.BREVO_SENDER_EMAIL },
-        to: [to],
+  // Option 1: Use Nodemailer SMTP if configured
+  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: env.SMTP_HOST,
+        port: env.SMTP_PORT,
+        secure: env.SMTP_PORT === 465,
+        auth: {
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"${env.BREVO_SENDER_NAME}" <${env.BREVO_SENDER_EMAIL}>`,
+        to: `"${to.name}" <${to.email}>`,
         subject,
-        htmlContent,
-      }),
-    });
+        html: htmlContent,
+      });
 
-    if (!response.ok) {
-      const errorBody = await response.text();
+      console.log(`[SMTP Email Success] Email sent to ${to.email} via SMTP.`);
+      return true;
+    } catch (smtpErr: any) {
+      console.warn(`[SMTP Email Error] Failed to send via SMTP to ${to.email}:`, smtpErr?.message || smtpErr);
+    }
+  }
 
-      let exactError = errorBody;
-      try {
-        const parsed = JSON.parse(errorBody);
-        exactError = parsed.message || parsed.error || errorBody;
-      } catch {
-        // use raw text
+  // Option 2: Use Brevo HTTP API
+  if (env.BREVO_API_KEY) {
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: env.BREVO_SENDER_NAME, email: env.BREVO_SENDER_EMAIL },
+          to: [to],
+          subject,
+          htmlContent,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+
+        let exactError = errorBody;
+        try {
+          const parsed = JSON.parse(errorBody);
+          exactError = parsed.message || parsed.error || errorBody;
+        } catch {
+          // use raw text
+        }
+
+        console.warn(`[Brevo API Warning] Brevo failed for ${to.email}: ${exactError}`);
+        return false;
       }
-
-      console.warn(`[Email Delivery Warning] Brevo failed for ${to.email}: ${exactError}`);
+      return true;
+    } catch (err: any) {
+      console.warn(`[Brevo API Warning] Network error sending to ${to.email}:`, err?.message || err);
       return false;
     }
-    return true;
-  } catch (err: any) {
-    console.warn(`[Email Delivery Warning] Failed to send email to ${to.email}:`, err?.message || err);
-    return false;
   }
+
+  return false;
 }
 
 function otpTemplate(name: string, otp: string, purpose: 'verification' | 'reset') {

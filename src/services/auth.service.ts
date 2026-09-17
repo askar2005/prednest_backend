@@ -42,7 +42,7 @@ export const authService = {
       console.log(`[OTP LOG FOR ${email}]: ${otp}`);
     }
 
-    return { message: 'Account created. Please verify your email.', userId: user.id, email: user.email };
+    return { message: 'Account created. Please verify your email.', userId: user.id, email: user.email, otp };
   },
 
   async verifyEmail(email: string, otp: string) {

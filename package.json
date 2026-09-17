@@ -27,6 +27,7 @@
     "multer": "^2.2.0",
     "multer-storage-cloudinary": "^4.0.0",
     "node-cron": "^4.6.0",
+    "nodemailer": "^10.0.10",
     "uuid": "^14.0.1",
     "xlsx": "^0.18.5",
     "zod": "^4.0.17"
@@ -44,6 +45,7 @@
     "@types/multer": "^2.2.0",
     "@types/node": "^24.2.1",
     "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^8.0.2",
     "@types/uuid": "^10.0.0",
     "@types/xlsx": "^0.0.35",
     "eslint": "^9.33.0",
