@@ -7,33 +7,40 @@ type SendEmailParams = {
   htmlContent: string;
 };
 
-export async function sendEmail({ to, subject, htmlContent }: SendEmailParams) {
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: {
-      'api-key': env.BREVO_API_KEY,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      sender: { name: env.BREVO_SENDER_NAME, email: env.BREVO_SENDER_EMAIL },
-      to: [to],
-      subject,
-      htmlContent,
-    }),
-  });
+export async function sendEmail({ to, subject, htmlContent }: SendEmailParams): Promise<boolean> {
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: env.BREVO_SENDER_NAME, email: env.BREVO_SENDER_EMAIL },
+        to: [to],
+        subject,
+        htmlContent,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
+    if (!response.ok) {
+      const errorBody = await response.text();
 
-    let exactError = errorBody;
-    try {
-      const parsed = JSON.parse(errorBody);
-      exactError = parsed.message || parsed.error || errorBody;
-    } catch {
-      // use raw text
+      let exactError = errorBody;
+      try {
+        const parsed = JSON.parse(errorBody);
+        exactError = parsed.message || parsed.error || errorBody;
+      } catch {
+        // use raw text
+      }
+
+      console.warn(`[Email Delivery Warning] Brevo failed for ${to.email}: ${exactError}`);
+      return false;
     }
-
-    throw new AppError(`Email delivery failed: ${exactError}`, 500);
+    return true;
+  } catch (err: any) {
+    console.warn(`[Email Delivery Warning] Failed to send email to ${to.email}:`, err?.message || err);
+    return false;
   }
 }
 

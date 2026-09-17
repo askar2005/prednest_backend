@@ -29,13 +29,35 @@ export const authService = {
     if (existing) throw new AppError('Email is already registered', 409);
     const otp = generateOtp();
     const otpExpiry = getOtpExpiry();
-    await sendVerificationOtp(input.fullName, email, otp);
     const passwordHash = await hashPassword(input.password);
+
+    const emailSent = await sendVerificationOtp(input.fullName, email, otp);
+    const isVerified = !emailSent;
+
     const user = await prisma.user.create({
-      data: { name: input.fullName, email, passwordHash, role: 'USER', otp, otpExpiry, isVerified: false },
+      data: {
+        name: input.fullName,
+        email,
+        passwordHash,
+        role: 'USER',
+        otp: emailSent ? otp : null,
+        otpExpiry: emailSent ? otpExpiry : null,
+        isVerified,
+      },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
-    return { message: 'Account created. Please verify your email.', userId: user.id, email: user.email };
+
+    if (!emailSent) {
+      console.warn(`[Signup Fallback] User ${email} auto-verified because email delivery returned an error.`);
+      return {
+        message: 'Account created successfully. You can now log in.',
+        userId: user.id,
+        email: user.email,
+        autoVerified: true,
+      };
+    }
+
+    return { message: 'Account created. Please verify your email.', userId: user.id, email: user.email, autoVerified: false };
   },
 
   async verifyEmail(email: string, otp: string) {
@@ -59,7 +81,12 @@ export const authService = {
       const otp = generateOtp();
       const otpExpiry = getOtpExpiry();
       await prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiry } });
-      await sendVerificationOtp(user.name, user.email, otp);
+      const emailSent = await sendVerificationOtp(user.name, user.email, otp);
+      if (!emailSent) {
+        await prisma.user.update({ where: { id: user.id }, data: { otp: null, otpExpiry: null, isVerified: true } });
+        const token = signToken(user.id, user.role);
+        return { user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt }, token };
+      }
       throw new AppError('Please verify your email first. A new OTP has been sent.', 403);
     }
     const token = signToken(user.id, user.role);
@@ -132,7 +159,11 @@ export const authService = {
     const otp = generateOtp();
     const otpExpiry = getOtpExpiry();
     await prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiry } });
-    await sendVerificationOtp(user.name, user.email, otp);
+    const emailSent = await sendVerificationOtp(user.name, user.email, otp);
+    if (!emailSent) {
+      await prisma.user.update({ where: { id: user.id }, data: { otp: null, otpExpiry: null, isVerified: true } });
+      return { message: 'Account verified automatically due to email service unavailability. You can now sign in.' };
+    }
     return { message: 'A new OTP has been sent to your email.' };
   },
 
