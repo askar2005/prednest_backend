@@ -52,7 +52,8 @@ export async function logout(_req: Request, res: Response) {
 
 export async function deleteAccount(req: Request, res: Response, next: NextFunction) {
   try {
-    res.json(await authService.deleteAccount(req.user!.id, req.body.password));
+    const password = req.body?.password;
+    res.json(await authService.deleteAccount(req.user!.id, password));
   } catch (e) {
     next(e);
   }

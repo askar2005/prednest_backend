@@ -3,11 +3,9 @@ import { ZodTypeAny } from 'zod';
 import { AppError } from '../utils/app-error.js';
 
 export const validateBody = (schema: ZodTypeAny) => (req: Request, _res: Response, next: NextFunction) => {
-  if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
-    return next(new AppError('Request body is empty. Make sure Content-Type is application/json.', 400));
-  }
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
 
-  const parsed = schema.safeParse(req.body);
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
     const flat = parsed.error.flatten();
     const fieldErrors = flat.fieldErrors as Record<string, string[]>;
