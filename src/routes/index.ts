@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authRouter } from './auth.routes.js';
+import { userRouter } from './user.routes.js';
 import { adminRouter } from './admin.routes.js';
 import { contentRouter } from './content.routes.js';
 import { studentRouter } from './student.routes.js';
@@ -25,6 +26,7 @@ apiRouter.get('/version', (_req, res) => {
 apiRouter.get('/privacy-policy', privacyPolicyController.getPrivacyPolicy);
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/user', userRouter);
 apiRouter.use('/admin', adminRouter);                     // Admin auth + profile routes
 apiRouter.use('/student', studentRouter);
 apiRouter.use('/notifications', studentNotificationRouter);
