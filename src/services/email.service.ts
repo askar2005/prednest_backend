@@ -50,7 +50,7 @@ export async function sendEmail({ to, subject, htmlContent }: SendEmailParams): 
         // use raw text
       }
       console.error(`[OTP] Brevo send failed for ${masked}. Status: ${response.status}. Error: ${exactError}`);
-      throw new AppError(`Email delivery failed: ${exactError}`, 500);
+      throw new AppError('Unable to send verification email. Please check your email address or try again later.', 500);
     }
 
     let messageId = 'accepted';
