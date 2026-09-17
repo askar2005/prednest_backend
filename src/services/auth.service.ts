@@ -26,89 +26,128 @@ export const authService = {
   async signup(input: SignupInput) {
     const email = normalizeEmail(input.email);
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) throw new AppError('Email is already registered', 409);
+    if (existing) {
+      if (existing.isVerified) {
+        throw new AppError('An account with this email address already exists. Please sign in.', 409);
+      }
+      // Re-use pending unverified record for retry
+      const otp = generateOtp();
+      const otpExpiry = getOtpExpiry();
+      const passwordHash = await hashPassword(input.password);
+
+      await sendVerificationOtp(input.fullName, email, otp);
+
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { name: input.fullName, passwordHash, otp, otpExpiry },
+      });
+
+      return { message: 'Account creation initiated. Please check your email for the verification code.', email };
+    }
+
     const otp = generateOtp();
     const otpExpiry = getOtpExpiry();
     const passwordHash = await hashPassword(input.password);
+
+    // 1. Send OTP email via Brevo FIRST (throws AppError if Brevo fails)
+    await sendVerificationOtp(input.fullName, email, otp);
+
+    // 2. Store unverified user record ONLY after Brevo accepts the email
     const user = await prisma.user.create({
       data: { name: input.fullName, email, passwordHash, role: 'USER', otp, otpExpiry, isVerified: false },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
 
-    try {
-      await sendVerificationOtp(input.fullName, email, otp);
-    } catch (err: any) {
-      console.warn(`[Signup Email Warning] Failed to deliver OTP email to ${email}:`, err?.message || err);
-      console.log(`[OTP LOG FOR ${email}]: ${otp}`);
-    }
-
-    return { message: 'Account created. Please verify your email.', userId: user.id, email: user.email, otp };
+    return { message: 'Account creation initiated. Please check your email for the verification code.', email: user.email };
   },
 
-  async verifyEmail(email: string, otp: string) {
-    const user = await prisma.user.findUnique({ where: { email: normalizeEmail(email) } });
-    if (!user) throw new AppError('User not found', 404);
-    if (user.isVerified) return { message: 'Email already verified.' };
-    if (!user.otp || !user.otpExpiry) throw new AppError('No OTP found. Request a new one.', 400);
-    if (isOtpExpired(user.otpExpiry)) throw new AppError('OTP has expired. Request a new one.', 400);
-    if (user.otp !== otp) throw new AppError('Invalid OTP', 400);
-    await prisma.user.update({ where: { id: user.id }, data: { otp: null, otpExpiry: null, isVerified: true } });
+  async verifyEmail(emailInput: string, otpInput: string) {
+    const email = normalizeEmail(emailInput);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('Account not found. Please sign up.', 404);
+    if (user.isVerified) return { message: 'Email is already verified. You can now sign in.' };
+    if (!user.otp || !user.otpExpiry) throw new AppError('No verification code found. Please request a new code.', 400);
+    if (isOtpExpired(user.otpExpiry)) throw new AppError('Verification code has expired. Please request a new code.', 400);
+    if (user.otp !== String(otpInput).trim()) throw new AppError('Invalid verification code. Please check and try again.', 400);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { otp: null, otpExpiry: null, isVerified: true },
+    });
+
     const token = signToken(user.id, user.role);
-    return { message: 'Email verified successfully.', token };
+    return { message: 'Email verified successfully. You can now sign in.', token };
   },
 
   async login(input: LoginInput) {
-    const user = await prisma.user.findUnique({ where: { email: normalizeEmail(input.email) } });
-    if (!user) throw new AppError('Invalid credentials', 401);
+    const email = normalizeEmail(input.email);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('Invalid email or password.', 401);
     const ok = await verifyPassword(input.password, user.passwordHash);
-    if (!ok) throw new AppError('Invalid credentials', 401);
+    if (!ok) throw new AppError('Invalid email or password.', 401);
+
     if (!user.isVerified) {
       const otp = generateOtp();
       const otpExpiry = getOtpExpiry();
-      await prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiry } });
       try {
         await sendVerificationOtp(user.name, user.email, otp);
-      } catch (err: any) {
-        console.warn(`[Login Email Warning] Failed to deliver OTP email to ${user.email}:`, err?.message || err);
-        console.log(`[OTP LOG FOR ${user.email}]: ${otp}`);
+        await prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiry } });
+      } catch (e) {
+        // ignore send error so 403 message is returned
       }
-      throw new AppError('Please verify your email first. A new OTP has been sent.', 403);
+      throw new AppError('Please verify your email address before logging in. A verification code has been sent.', 403);
     }
+
     const token = signToken(user.id, user.role);
     return { user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt }, token };
   },
 
-  async forgotPassword(email: string) {
-    const user = await prisma.user.findUnique({ where: { email: normalizeEmail(email) } });
-    if (!user) return { message: 'If the email exists, a reset code has been sent.' };
+  async forgotPassword(emailInput: string) {
+    const email = normalizeEmail(emailInput);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return { message: 'If an account with this email exists, a password reset code has been sent.' };
+    }
+
     const otp = generateOtp();
     const otpExpiry = getOtpExpiry();
-    await prisma.user.update({ where: { id: user.id }, data: { resetOtp: otp, resetOtpExpiry: otpExpiry } });
+
     await sendResetOtp(user.name, user.email, otp);
-    return { message: 'If the email exists, a reset code has been sent.' };
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetOtp: otp, resetOtpExpiry: otpExpiry },
+    });
+
+    return { message: 'If an account with this email exists, a password reset code has been sent.' };
   },
 
-  async verifyResetOtp(email: string, otp: string) {
-    const user = await prisma.user.findUnique({ where: { email: normalizeEmail(email) } });
-    if (!user) throw new AppError('User not found', 404);
-    if (!user.resetOtp || !user.resetOtpExpiry) throw new AppError('No reset code found. Request a new one.', 400);
-    if (isOtpExpired(user.resetOtpExpiry)) throw new AppError('Reset code has expired. Request a new one.', 400);
-    if (user.resetOtp !== otp) throw new AppError('Invalid reset code', 400);
-    return { message: 'OTP verified. You can now reset your password.' };
+  async verifyResetOtp(emailInput: string, otpInput: string) {
+    const email = normalizeEmail(emailInput);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('Account not found.', 404);
+    if (!user.resetOtp || !user.resetOtpExpiry) throw new AppError('No password reset code found. Please request a new code.', 400);
+    if (isOtpExpired(user.resetOtpExpiry)) throw new AppError('Password reset code has expired. Please request a new code.', 400);
+    if (user.resetOtp !== String(otpInput).trim()) throw new AppError('Invalid password reset code.', 400);
+
+    return { message: 'Verification code accepted. You can now set your new password.' };
   },
 
-  async resetPassword(email: string, otp: string, newPassword: string) {
-    const user = await prisma.user.findUnique({ where: { email: normalizeEmail(email) } });
-    if (!user) throw new AppError('User not found', 404);
-    if (!user.resetOtp || !user.resetOtpExpiry) throw new AppError('No reset code found. Request a new one.', 400);
-    if (isOtpExpired(user.resetOtpExpiry)) throw new AppError('Reset code has expired.', 400);
-    if (user.resetOtp !== otp) throw new AppError('Invalid reset code', 400);
+  async resetPassword(emailInput: string, otpInput: string, newPassword: string) {
+    const email = normalizeEmail(emailInput);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('Account not found.', 404);
+    if (!user.resetOtp || !user.resetOtpExpiry) throw new AppError('No password reset code found. Please request a new code.', 400);
+    if (isOtpExpired(user.resetOtpExpiry)) throw new AppError('Password reset code has expired.', 400);
+    if (user.resetOtp !== String(otpInput).trim()) throw new AppError('Invalid password reset code.', 400);
+
     const passwordHash = await hashPassword(newPassword);
     await prisma.user.update({
       where: { id: user.id },
       data: { passwordHash, resetOtp: null, resetOtpExpiry: null },
     });
-    return { message: 'Password has been reset successfully.' };
+
+    return { message: 'Your password has been reset successfully. Please sign in.' };
   },
 
   async updateProfile(userId: string, data: { name?: string }) {
@@ -138,19 +177,23 @@ export const authService = {
     return user;
   },
 
-  async resendOtp(email: string) {
-    const user = await prisma.user.findUnique({ where: { email: normalizeEmail(email) } });
-    if (!user) throw new AppError('User not found', 404);
+  async resendOtp(emailInput: string) {
+    const email = normalizeEmail(emailInput);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new AppError('User account not found', 404);
+    if (user.isVerified) throw new AppError('Email is already verified.', 400);
+
     const otp = generateOtp();
     const otpExpiry = getOtpExpiry();
-    await prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiry } });
-    try {
-      await sendVerificationOtp(user.name, user.email, otp);
-    } catch (err: any) {
-      console.warn(`[Resend OTP Email Warning] Failed to deliver OTP email to ${user.email}:`, err?.message || err);
-      console.log(`[OTP LOG FOR ${user.email}]: ${otp}`);
-    }
-    return { message: 'A new OTP has been sent to your email.' };
+
+    await sendVerificationOtp(user.name, user.email, otp);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { otp, otpExpiry },
+    });
+
+    return { message: 'A new verification code has been sent to your email.' };
   },
 
   async deleteAccount(userId: string, password?: string) {
