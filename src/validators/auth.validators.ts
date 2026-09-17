@@ -71,7 +71,7 @@ export type VerifyResetOtpInput = z.infer<typeof verifyResetOtpSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 export const deleteAccountSchema = z.object({
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().optional(),
 });
 
 export const requestWebDeleteAccountSchema = z.object({

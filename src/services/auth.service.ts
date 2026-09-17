@@ -202,14 +202,44 @@ export const authService = {
 
 async function deleteUserCascade(userId: string) {
   return prisma.$transaction(async (tx) => {
+    // 1. Delete user daily challenge attempts
     await tx.userDailyChallenge.deleteMany({ where: { userId } });
+
+    // 2. Delete user streak
     await tx.userStreak.deleteMany({ where: { userId } });
+
+    // 3. Delete progress
     await tx.progress.deleteMany({ where: { userId } });
-    await tx.answerRecord.deleteMany({ where: { result: { userId } } });
+
+    // 4. Find results owned by this user
+    const userResults = await tx.result.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+    const resultIds = userResults.map((r) => r.id);
+
+    // 5. Delete answer records for those results
+    if (resultIds.length > 0) {
+      await tx.answerRecord.deleteMany({
+        where: { resultId: { in: resultIds } },
+      });
+    }
+
+    // 6. Delete user results
     await tx.result.deleteMany({ where: { userId } });
+
+    // 7. Delete notification read markers
     await tx.notificationRead.deleteMany({ where: { userId } });
-    await tx.discussionComment.updateMany({ where: { userId }, data: { userId: null } });
+
+    // 8. Disassociate discussion comments (set userId to null)
+    await tx.discussionComment.updateMany({
+      where: { userId },
+      data: { userId: null },
+    });
+
+    // 9. Delete user record itself
     return tx.user.delete({ where: { id: userId } });
   });
 }
+
 
