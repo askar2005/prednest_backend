@@ -1,12 +1,14 @@
+import crypto from 'crypto';
+
 export function generateOtp(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(crypto.randomInt(100000, 1000000));
 }
 
 export function getOtpExpiry(): Date {
-  return new Date(Date.now() + 5 * 60 * 1000);
+  return new Date(Date.now() + 15 * 60 * 1000);
 }
 
 export function isOtpExpired(expiry: Date | null | undefined): boolean {
   if (!expiry) return true;
-  return new Date() > expiry;
+  return new Date() > new Date(expiry);
 }
