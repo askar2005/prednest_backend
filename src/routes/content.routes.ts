@@ -83,11 +83,11 @@ router.get('/preparation-categories', async (req, res, next) => {
     const itemsWithCounts = await Promise.all(
       rawResult.items.map(async (cat: any) => {
         const [smNotes, newNotes, mcqs, videos, mockTests] = await Promise.all([
-          prisma.studyMaterial.count({ where: { preparationCategoryId: cat.id, visibility: 'PUBLIC' } }),
+          prisma.studyMaterial.count({ where: { OR: [{ preparationCategoryId: cat.id }, { topic: { preparationCategoryId: cat.id } }], visibility: 'PUBLIC' } }),
           prisma.note.count({ where: { topic: { preparationCategoryId: cat.id }, isPublished: true } }),
-          prisma.mCQQuestion.count({ where: { preparationCategoryId: cat.id, isPublished: true, status: 'ACTIVE' } }),
-          prisma.video.count({ where: { preparationCategoryId: cat.id, visibility: 'PUBLIC' } }),
-          prisma.mockTest.count({ where: { preparationCategoryId: cat.id, publishStatus: 'PUBLISHED' } }),
+          prisma.mCQQuestion.count({ where: { OR: [{ preparationCategoryId: cat.id }, { topic: { preparationCategoryId: cat.id } }], isPublished: true, status: 'ACTIVE' } }),
+          prisma.video.count({ where: { OR: [{ preparationCategoryId: cat.id }, { topic: { preparationCategoryId: cat.id } }], visibility: 'PUBLIC' } }),
+          prisma.mockTest.count({ where: { OR: [{ preparationCategoryId: cat.id }, { topic: { preparationCategoryId: cat.id } }], publishStatus: 'PUBLISHED' } }),
         ]);
         const totalNotes = smNotes + newNotes;
         const counts = {
