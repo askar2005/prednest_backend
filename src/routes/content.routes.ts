@@ -72,12 +72,48 @@ router.put('/users/:id', ...adminOnly, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// Categories need _count for dashboard cards
+// Categories need real content counts for dashboard cards
 const catService = createCrudService('preparationCategory', {
   include: { _count: { select: { studyMaterials: true, mcqQuestions: true, videos: true, mockTests: true } } },
 });
 const catController = createCrudController(catService);
-router.get('/preparation-categories', catController.list);
+router.get('/preparation-categories', async (req, res, next) => {
+  try {
+    const rawResult = await catService.list(req.query);
+    const itemsWithCounts = await Promise.all(
+      rawResult.items.map(async (cat: any) => {
+        const [smNotes, newNotes, mcqs, videos, mockTests] = await Promise.all([
+          prisma.studyMaterial.count({ where: { preparationCategoryId: cat.id, visibility: 'PUBLIC' } }),
+          prisma.note.count({ where: { topic: { preparationCategoryId: cat.id }, isPublished: true } }),
+          prisma.mCQQuestion.count({ where: { preparationCategoryId: cat.id, isPublished: true, status: 'ACTIVE' } }),
+          prisma.video.count({ where: { preparationCategoryId: cat.id, visibility: 'PUBLIC' } }),
+          prisma.mockTest.count({ where: { preparationCategoryId: cat.id, publishStatus: 'PUBLISHED' } }),
+        ]);
+        const totalNotes = smNotes + newNotes;
+        const counts = {
+          notes: totalNotes,
+          mcqs,
+          videos,
+          mockTests,
+        };
+        return {
+          ...cat,
+          counts,
+          _count: {
+            ...cat._count,
+            notes: totalNotes,
+            studyMaterials: totalNotes,
+            mcqs,
+            mcqQuestions: mcqs,
+            videos,
+            mockTests,
+          },
+        };
+      })
+    );
+    res.json({ ...rawResult, items: itemsWithCounts });
+  } catch (e) { next(e); }
+});
 router.get('/preparation-categories/:id', catController.get);
 router.post('/preparation-categories', ...adminOnly, validateBody(preparationCategorySchema as any), catController.create);
 router.put('/preparation-categories/:id', ...adminOnly, validateBody(preparationCategorySchema as any), catController.update);

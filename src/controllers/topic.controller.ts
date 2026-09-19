@@ -18,12 +18,31 @@ export const topicController = {
 
   get: async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const topicId = req.params.topicId as string;
       const topic = await prisma.topic.findUnique({
-        where: { id: req.params.topicId as string },
-        include: { _count: { select: { studyMaterials: true, mcqQuestions: true, videos: true } } },
+        where: { id: topicId },
       });
       if (!topic) throw new AppError('Topic not found', 404);
-      res.json(topic);
+
+      const [smNotes, newNotes, mcqs, videos] = await Promise.all([
+        prisma.studyMaterial.count({ where: { topicId, visibility: 'PUBLIC' } }),
+        prisma.note.count({ where: { topicId, isPublished: true } }),
+        prisma.mCQQuestion.count({ where: { topicId, isPublished: true, status: 'ACTIVE' } }),
+        prisma.video.count({ where: { topicId, visibility: 'PUBLIC' } }),
+      ]);
+      const totalNotes = smNotes + newNotes;
+
+      res.json({
+        ...topic,
+        counts: { notes: totalNotes, mcqs, videos },
+        _count: {
+          notes: totalNotes,
+          studyMaterials: totalNotes,
+          mcqs,
+          mcqQuestions: mcqs,
+          videos,
+        },
+      });
     } catch (e) { next(e); }
   },
 
@@ -47,19 +66,19 @@ export const topicController = {
     try {
       const topicId = req.params.topicId as string;
       const [notesCount, pdfs, mcqs, videos, pyqs, mockTests, results, scores, newNotesCount] = await Promise.all([
-        prisma.studyMaterial.count({ where: { topicId, type: 'NOTE' } }),
-        prisma.studyMaterial.count({ where: { topicId, type: 'PDF' } }),
-        prisma.mCQQuestion.count({ where: { topicId } }),
-        prisma.video.count({ where: { topicId } }),
-        prisma.previousYearQuestion.count({ where: { preparationCategory: { topics: { some: { id: topicId } } } } }),
-        prisma.mockTest.count({ where: { preparationCategory: { topics: { some: { id: topicId } } } } }),
-        prisma.result.count({ where: { mockTest: { preparationCategory: { topics: { some: { id: topicId } } } } } }),
-        prisma.result.aggregate({ where: { mockTest: { preparationCategory: { topics: { some: { id: topicId } } } } }, _avg: { score: true }, _max: { score: true } }),
-        prisma.note.count({ where: { topicId } }),
+        prisma.studyMaterial.count({ where: { topicId, type: 'NOTE', visibility: 'PUBLIC' } }),
+        prisma.studyMaterial.count({ where: { topicId, type: 'PDF', visibility: 'PUBLIC' } }),
+        prisma.mCQQuestion.count({ where: { topicId, isPublished: true, status: 'ACTIVE' } }),
+        prisma.video.count({ where: { topicId, visibility: 'PUBLIC' } }),
+        prisma.previousYearQuestion.count({ where: { topicId, isPublished: true } }),
+        prisma.mockTest.count({ where: { topicId, publishStatus: 'PUBLISHED' } }),
+        prisma.result.count({ where: { mockTest: { topicId } } }),
+        prisma.result.aggregate({ where: { mockTest: { topicId } }, _avg: { score: true }, _max: { score: true } }),
+        prisma.note.count({ where: { topicId, isPublished: true } }),
       ]);
-      const recentUploads = await prisma.studyMaterial.findMany({ where: { topicId }, orderBy: { createdAt: 'desc' }, take: 5, select: { title: true, createdAt: true, type: true } });
-      const recentMcqs = await prisma.mCQQuestion.findMany({ where: { topicId }, orderBy: { createdAt: 'desc' }, take: 5, select: { question: true, createdAt: true } });
-      const recentVideos = await prisma.video.findMany({ where: { topicId }, orderBy: { createdAt: 'desc' }, take: 5, select: { title: true, createdAt: true } });
+      const recentUploads = await prisma.studyMaterial.findMany({ where: { topicId, visibility: 'PUBLIC' }, orderBy: { createdAt: 'desc' }, take: 5, select: { title: true, createdAt: true, type: true } });
+      const recentMcqs = await prisma.mCQQuestion.findMany({ where: { topicId, isPublished: true, status: 'ACTIVE' }, orderBy: { createdAt: 'desc' }, take: 5, select: { question: true, createdAt: true } });
+      const recentVideos = await prisma.video.findMany({ where: { topicId, visibility: 'PUBLIC' }, orderBy: { createdAt: 'desc' }, take: 5, select: { title: true, createdAt: true } });
       res.json({
         notes: notesCount + newNotesCount, pdfs, mcqs, videos, pyqs, mockTests,
         totalAttempts: results,

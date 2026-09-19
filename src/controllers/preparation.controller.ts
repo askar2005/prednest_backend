@@ -42,18 +42,18 @@ export const preparationController = {
       const id = catId(req);
       const [topics, smNotes, pdfs, mcqs, videos, pyqs, mockTests, results, scores, newNotes] = await Promise.all([
         prisma.topic.count({ where: { preparationCategoryId: id } }),
-        prisma.studyMaterial.count({ where: { preparationCategoryId: id, type: 'NOTE' } }),
-        prisma.studyMaterial.count({ where: { preparationCategoryId: id, type: 'PDF' } }),
-        prisma.mCQQuestion.count({ where: { preparationCategoryId: id } }),
-        prisma.video.count({ where: { preparationCategoryId: id } }),
-        prisma.previousYearQuestion.count({ where: { preparationCategoryId: id } }),
-        prisma.mockTest.count({ where: { preparationCategoryId: id } }),
+        prisma.studyMaterial.count({ where: { preparationCategoryId: id, type: 'NOTE', visibility: 'PUBLIC' } }),
+        prisma.studyMaterial.count({ where: { preparationCategoryId: id, type: 'PDF', visibility: 'PUBLIC' } }),
+        prisma.mCQQuestion.count({ where: { preparationCategoryId: id, isPublished: true, status: 'ACTIVE' } }),
+        prisma.video.count({ where: { preparationCategoryId: id, visibility: 'PUBLIC' } }),
+        prisma.previousYearQuestion.count({ where: { preparationCategoryId: id, isPublished: true } }),
+        prisma.mockTest.count({ where: { preparationCategoryId: id, publishStatus: 'PUBLISHED' } }),
         prisma.result.count({ where: { mockTest: { preparationCategoryId: id } } }),
         prisma.result.aggregate({ where: { mockTest: { preparationCategoryId: id } }, _avg: { score: true }, _max: { score: true }, _min: { score: true } }),
-        prisma.note.count({ where: { topic: { preparationCategoryId: id } } }),
+        prisma.note.count({ where: { topic: { preparationCategoryId: id }, isPublished: true } }),
       ]);
       const notes = smNotes + newNotes;
-      const recent = await prisma.studyMaterial.findMany({ where: { preparationCategoryId: id }, orderBy: { createdAt: 'desc' }, take: 5, select: { title: true, createdAt: true, type: true } });
+      const recent = await prisma.studyMaterial.findMany({ where: { preparationCategoryId: id, visibility: 'PUBLIC' }, orderBy: { createdAt: 'desc' }, take: 5, select: { title: true, createdAt: true, type: true } });
       const topTopic = await prisma.topic.findFirst({ where: { preparationCategoryId: id }, orderBy: { studyMaterials: { _count: 'desc' } }, select: { name: true, _count: { select: { studyMaterials: true, mcqQuestions: true } } } });
       res.json({ topics, notes, pdfs, mcqs, videos, pyqs, mockTests, totalAttempts: results, averageScore: scores._avg.score || 0, highestScore: scores._max.score || 0, lowestScore: scores._min.score || 0, recentUploads: recent, topTopic });
     } catch (e) { next(e); }
@@ -62,7 +62,36 @@ export const preparationController = {
   topics: { list: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = catId(req);
-      const items = await prisma.topic.findMany({ where: { preparationCategoryId: id }, orderBy: { createdAt: 'desc' }, include: { _count: { select: { studyMaterials: true, mcqQuestions: true, videos: true } } } });
+      const topicsList = await prisma.topic.findMany({ where: { preparationCategoryId: id }, orderBy: { createdAt: 'desc' } });
+
+      const items = await Promise.all(
+        topicsList.map(async (topic) => {
+          const [smNotes, newNotes, mcqs, videos] = await Promise.all([
+            prisma.studyMaterial.count({ where: { topicId: topic.id, visibility: 'PUBLIC' } }),
+            prisma.note.count({ where: { topicId: topic.id, isPublished: true } }),
+            prisma.mCQQuestion.count({ where: { topicId: topic.id, isPublished: true, status: 'ACTIVE' } }),
+            prisma.video.count({ where: { topicId: topic.id, visibility: 'PUBLIC' } }),
+          ]);
+          const totalNotes = smNotes + newNotes;
+          const counts = {
+            notes: totalNotes,
+            mcqs,
+            videos,
+          };
+          return {
+            ...topic,
+            counts,
+            _count: {
+              notes: totalNotes,
+              studyMaterials: totalNotes,
+              mcqs,
+              mcqQuestions: mcqs,
+              videos,
+            },
+          };
+        })
+      );
+
       res.json({ items, total: items.length });
     } catch (e) { next(e); }
   }},
